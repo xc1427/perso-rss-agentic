@@ -1,4 +1,5 @@
-import { load, type CheerioAPI, type AnyNode } from "cheerio"
+import { load, type CheerioAPI } from "cheerio"
+import type { AnyNode } from "domhandler"
 import type { FeedItem, FeedSource } from "../types.js"
 
 export async function fetchCategoryFeed(

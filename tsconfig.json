@@ -5,7 +5,9 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "types": ["node"]
   },
   "include": ["src/**/*", "test/**/*"]
 }
