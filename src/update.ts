@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
+import { writeFileSync, mkdirSync } from "node:fs"
 import { fetchCategoryFeed } from "./sources/claudeCategory.js"
 import { fetchChangelogFeed, CHANGELOG_URL } from "./sources/claudeChangelog.js"
 import { renderRss } from "./render/rss.js"
@@ -51,11 +51,8 @@ async function updateFeed(config: FeedConfig): Promise<void> {
 function writeIfChanged(filePath: string, content: string): void {
   const dir = filePath.split("/").slice(0, -1).join("/")
   if (dir) mkdirSync(dir, { recursive: true })
-
-  if (existsSync(filePath) && readFileSync(filePath, "utf-8") === content) return
-
   writeFileSync(filePath, content, "utf-8")
-  console.log(`updated: ${filePath}`)
+  console.log(`written: ${filePath}`)
 }
 
 const results = await Promise.allSettled(
