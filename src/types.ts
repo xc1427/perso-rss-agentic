@@ -18,5 +18,4 @@ export type FeedConfig = {
   feedUrl: string
   fetchUrl: string
   outputXml: string
-  outputJson: string
 }

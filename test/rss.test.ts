@@ -10,7 +10,6 @@ const config: FeedConfig = {
   feedUrl: "https://example.github.io/rss/claude-code.xml",
   fetchUrl: "https://claude.com/blog/category/claude-code",
   outputXml: "public/claude-code.xml",
-  outputJson: "data/claude-code.json",
 }
 
 const items: FeedItem[] = [

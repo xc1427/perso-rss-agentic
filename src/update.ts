@@ -15,7 +15,6 @@ const CONFIGS: FeedConfig[] = [
     feedUrl: `${PAGES_BASE}/claude-code.xml`,
     fetchUrl: "https://claude.com/blog/category/claude-code",
     outputXml: "public/claude-code.xml",
-    outputJson: "data/claude-code.json",
   },
   {
     source: "agents",
@@ -25,7 +24,6 @@ const CONFIGS: FeedConfig[] = [
     feedUrl: `${PAGES_BASE}/agents.xml`,
     fetchUrl: "https://claude.com/blog/category/agents",
     outputXml: "public/agents.xml",
-    outputJson: "data/agents.json",
   },
   {
     source: "claude-code-changelog",
@@ -35,7 +33,6 @@ const CONFIGS: FeedConfig[] = [
     feedUrl: `${PAGES_BASE}/claude-code-changelog.xml`,
     fetchUrl: CHANGELOG_URL,
     outputXml: "public/claude-code-changelog.xml",
-    outputJson: "data/claude-code-changelog.json",
   },
 ]
 
@@ -49,7 +46,6 @@ async function updateFeed(config: FeedConfig): Promise<void> {
   }
 
   writeIfChanged(config.outputXml, renderRss(items, config))
-  writeIfChanged(config.outputJson, JSON.stringify(items, null, 2) + "\n")
 }
 
 function writeIfChanged(filePath: string, content: string): void {
