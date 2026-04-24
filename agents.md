@@ -1,6 +1,6 @@
 # Agent Instructions
 
-> **Superpower note:** When generating plans, specs, or brainstorms, do not create an intermediate folder. Place generated documents directly in `docs/superpowers/specs/`.
+> **Superpower note:** When generating plans, specs, or brainstorms, place generated documents directly in `docs/specs/`. Do not create a `superpowers` or any other intermediate folder.
 
 ## Documentation Language
 
