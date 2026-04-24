@@ -19,17 +19,12 @@ src/
   update.ts                       # Pipeline entry point
   types.ts                        # Shared TypeScript types
   sources/
-    claudeCategory.ts             # HTML parsing logic (used by generated scrapers)
-    claudeChangelog.ts            # Markdown parsing logic (used by generated scrapers)
     generated/                    # Agent-generated scrapers (committed to git)
       .gitkeep
   render/
     rss.ts                        # RSS XML renderer
 
 test/
-  fixtures/                       # Minimal HTML / markdown snippets for parser tests
-  claudeCategory.test.ts
-  claudeChangelog.test.ts
   rss.test.ts
 
 .github/workflows/
