@@ -8,7 +8,7 @@ All specifications and implementation plans in this repository must be authored 
 
 ## Architecture Reference
 
-See `ARCHITECTURE.md` for a complete description of the system: file layout, core types, scraper loading priority, agent-generation loop, CI/deployment flow, and instructions for adding new sources.
+@ARCHITECTURE.md
 
 ## Key Conventions
 
