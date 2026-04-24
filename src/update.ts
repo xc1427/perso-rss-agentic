@@ -45,10 +45,10 @@ async function updateFeed(config: FeedConfig): Promise<void> {
     items = await fetchCategoryFeed(config.fetchUrl, config.source, config.siteUrl)
   }
 
-  writeIfChanged(config.outputXml, renderRss(items, config))
+  writeFeed(config.outputXml, renderRss(items, config))
 }
 
-function writeIfChanged(filePath: string, content: string): void {
+function writeFeed(filePath: string, content: string): void {
   const dir = filePath.split("/").slice(0, -1).join("/")
   if (dir) mkdirSync(dir, { recursive: true })
   writeFileSync(filePath, content, "utf-8")
