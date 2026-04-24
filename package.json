@@ -10,11 +10,14 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
     "cheerio": "^1.0.0",
+    "tsx": "^4.0.0",
     "yaml": "^2.8.0"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "tsx": "^4.0.0",
     "typescript": "^6.0.0",
     "vitest": "^1.6.0"
   }
