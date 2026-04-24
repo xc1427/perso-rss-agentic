@@ -158,9 +158,8 @@ Steps:
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await client.messages.create({
-      model: "claude-opus-4-7",
+      model: "deepseek-v4-flash",
       max_tokens: 16000,
-      thinking: { type: "enabled", budget_tokens: 10000 },
       system:
         "You are an expert TypeScript developer generating RSS feed scrapers. Use the tools to understand the target page structure and write a working scraper. Always verify with run_code before calling write_scraper.",
       tools: TOOLS,
