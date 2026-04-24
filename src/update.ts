@@ -76,6 +76,8 @@ async function updateFeed(config: FeedConfig): Promise<void> {
   } catch (err) {
     const generatedPath = `src/sources/generated/${config.slug}.ts`
     if (existsSync(generatedPath)) {
+      // The in-process ESM module cache still holds this module after deletion.
+      // Safe only because the process exits before any retry — never re-import the same slug in-process.
       rmSync(generatedPath)
       console.error(`  Deleted broken generated scraper: ${generatedPath}`)
     }

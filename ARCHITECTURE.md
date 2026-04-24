@@ -102,9 +102,11 @@ Validation failure is treated as a hard error (same as a thrown exception).
 
 If `fetchFeed` throws or validation fails, `update.ts` deletes `src/sources/generated/{slug}.ts`. The CI step that commits generated scrapers runs with `if: always()`, so deletions are committed even when the pipeline fails — the scraper will be regenerated on the next run.
 
+> **Module cache caveat:** Node's ESM `import()` caches a successfully loaded module in-process. If a scraper is imported, then deleted from disk after a validation failure, the in-memory module remains live for the duration of that process run. This is safe because the process always exits (success or `process.exit(1)`) before any retry could occur. Do not introduce intra-process retry logic that re-imports the same slug — it would silently execute the stale cached module instead of the regenerated one.
+
 ## Agent-Generation Loop (`scripts/generate-source.ts`)
 
-Uses `@anthropic-ai/sdk` with `claude-opus-4-7` and extended thinking (`budget_tokens: 10000`). Maximum 10 turns. Available tools:
+Uses `@anthropic-ai/sdk` with `deepseek-v4-flash` (via DeepSeek's Anthropic-compatible API) and extended thinking (`budget_tokens: 10000`). Maximum 10 turns. Available tools:
 
 | Tool | Description |
 |---|---|

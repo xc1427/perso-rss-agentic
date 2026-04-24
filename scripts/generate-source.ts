@@ -158,7 +158,7 @@ Steps:
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await client.messages.create({
-      model: "claude-opus-4-7",
+      model: "deepseek-v4-flash",
       max_tokens: 16000,
       thinking: { type: "enabled", budget_tokens: 10000 },
       system:
