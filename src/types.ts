@@ -1,4 +1,4 @@
-export type FeedSource = "claude-code" | "agents" | "claude-code-changelog"
+export type FeedSource = string
 
 export type FeedItem = {
   id: string
@@ -11,7 +11,7 @@ export type FeedItem = {
 }
 
 export type FeedConfig = {
-  source: FeedSource
+  slug: string
   feedTitle: string
   feedDescription: string
   siteUrl: string

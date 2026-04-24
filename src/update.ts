@@ -1,68 +1,114 @@
-import { writeFileSync, mkdirSync } from "node:fs"
-import { fetchCategoryFeed } from "./sources/claudeCategory.js"
-import { fetchChangelogFeed, CHANGELOG_URL } from "./sources/claudeChangelog.js"
+import { writeFileSync, mkdirSync, readdirSync, readFileSync, existsSync, rmSync } from "node:fs"
+import { parse as parseYaml } from "yaml"
 import { renderRss } from "./render/rss.js"
 import type { FeedConfig, FeedItem } from "./types.js"
 
 const PAGES_BASE = "https://xc1427.github.io/perso-rss-agentic"
+const SOURCES_DIR = "sources"
 
-const CONFIGS: FeedConfig[] = [
-  {
-    source: "claude-code",
-    feedTitle: "Claude Code Blog",
-    feedDescription: "Latest posts from the Claude Code blog",
-    siteUrl: "https://claude.com/blog/category/claude-code",
-    feedUrl: `${PAGES_BASE}/claude-code.xml`,
-    fetchUrl: "https://claude.com/blog/category/claude-code",
-    outputXml: "public/claude-code.xml",
-  },
-  {
-    source: "agents",
-    feedTitle: "Claude Agents Blog",
-    feedDescription: "Latest posts from the Claude Agents blog",
-    siteUrl: "https://claude.com/blog/category/agents",
-    feedUrl: `${PAGES_BASE}/agents.xml`,
-    fetchUrl: "https://claude.com/blog/category/agents",
-    outputXml: "public/agents.xml",
-  },
-  {
-    source: "claude-code-changelog",
-    feedTitle: "Claude Code Changelog",
-    feedDescription: "Version updates for Claude Code",
-    siteUrl: "https://code.claude.com/docs/en/changelog",
-    feedUrl: `${PAGES_BASE}/claude-code-changelog.xml`,
-    fetchUrl: CHANGELOG_URL,
-    outputXml: "public/claude-code-changelog.xml",
-  },
-]
+interface SourceYaml {
+  slug: string
+  feedTitle: string
+  feedDescription: string
+  siteUrl: string
+  fetchUrl: string
+}
 
-async function updateFeed(config: FeedConfig): Promise<void> {
-  let items: FeedItem[]
+type ScraperModule = { fetchFeed: (config: FeedConfig) => Promise<FeedItem[]> }
 
-  if (config.source === "claude-code-changelog") {
-    items = await fetchChangelogFeed(config.fetchUrl)
-  } else {
-    items = await fetchCategoryFeed(config.fetchUrl, config.source, config.siteUrl)
+function loadConfigs(): FeedConfig[] {
+  const files = readdirSync(SOURCES_DIR).filter((f) => f.endsWith(".yml"))
+  return files.map((file) => {
+    const raw = readFileSync(`${SOURCES_DIR}/${file}`, "utf-8")
+    const yml = parseYaml(raw) as SourceYaml
+    return {
+      slug: yml.slug,
+      feedTitle: yml.feedTitle,
+      feedDescription: yml.feedDescription,
+      siteUrl: yml.siteUrl,
+      feedUrl: `${PAGES_BASE}/${yml.slug}.xml`,
+      fetchUrl: yml.fetchUrl,
+      outputXml: `public/${yml.slug}.xml`,
+    }
+  })
+}
+
+async function loadScraper(slug: string, config: FeedConfig): Promise<{ module: ScraperModule; isGenerated: boolean }> {
+  // Hand-written scraper takes priority
+  try {
+    const mod = await import(`./sources/${slug}.js`) as ScraperModule
+    return { module: mod, isGenerated: false }
+  } catch {
+    // no-op — fall through to generated
   }
 
-  writeFeed(config.outputXml, renderRss(items, config))
+  // Try cached generated scraper
+  try {
+    const mod = await import(`./sources/generated/${slug}.js`) as ScraperModule
+    return { module: mod, isGenerated: true }
+  } catch {
+    // no-op — fall through to agent generation
+  }
+
+  // Auto-generate via Anthropic agent
+  console.log(`  No scraper found for ${slug} — generating via agent...`)
+  const { generateScraper } = await import("../scripts/generate-source.js")
+  await generateScraper(slug, config)
+  const mod = await import(`./sources/generated/${slug}.js`) as ScraperModule
+  return { module: mod, isGenerated: true }
+}
+
+function validateItems(items: FeedItem[], slug: string): void {
+  if (items.length < 1) throw new Error(`${slug}: scraper returned no items`)
+  for (const item of items) {
+    if (!item.id?.trim()) throw new Error(`${slug}: item missing id`)
+    if (!item.title?.trim()) throw new Error(`${slug}: item missing title`)
+    if (!item.url?.trim()) throw new Error(`${slug}: item missing url`)
+    if (!item.publishedAt?.trim()) throw new Error(`${slug}: item missing publishedAt`)
+    if (isNaN(new Date(item.publishedAt).getTime())) {
+      throw new Error(`${slug}: invalid publishedAt: ${item.publishedAt}`)
+    }
+  }
 }
 
 function writeFeed(filePath: string, content: string): void {
   const dir = filePath.split("/").slice(0, -1).join("/")
   if (dir) mkdirSync(dir, { recursive: true })
   writeFileSync(filePath, content, "utf-8")
-  console.log(`written: ${filePath}`)
+  console.log(`  written: ${filePath}`)
 }
 
+async function updateFeed(config: FeedConfig): Promise<void> {
+  const { module: scraper, isGenerated } = await loadScraper(config.slug, config)
+
+  let items: FeedItem[]
+  try {
+    items = await scraper.fetchFeed(config)
+    validateItems(items, config.slug)
+  } catch (err) {
+    if (isGenerated) {
+      const generatedPath = `src/sources/generated/${config.slug}.ts`
+      if (existsSync(generatedPath)) {
+        rmSync(generatedPath)
+        console.error(`  Deleted broken generated scraper: ${generatedPath}`)
+      }
+    }
+    throw err
+  }
+
+  writeFeed(config.outputXml, renderRss(items, config))
+}
+
+const configs = loadConfigs()
+
 const results = await Promise.allSettled(
-  CONFIGS.map(async (config) => {
+  configs.map(async (config) => {
     try {
       await updateFeed(config)
-      console.log(`✓ ${config.source}`)
+      console.log(`✓ ${config.slug}`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`✗ ${config.source}: ${msg}`)
+      console.error(`✗ ${config.slug}: ${msg}`)
       throw err
     }
   })

@@ -3,7 +3,7 @@ import { renderRss } from "../src/render/rss.js"
 import type { FeedConfig, FeedItem } from "../src/types.js"
 
 const config: FeedConfig = {
-  source: "claude-code",
+  slug: "claude-code",
   feedTitle: "Claude Code Blog",
   feedDescription: "Latest posts",
   siteUrl: "https://claude.com/blog/category/claude-code",

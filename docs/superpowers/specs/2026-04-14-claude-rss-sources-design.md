@@ -1,7 +1,7 @@
 # Claude RSS 源设计说明
 
 日期：2026-04-14
-最后更新：2026-04-23
+最后更新：2026-04-24
 
 ## 1. 目标
 
@@ -19,7 +19,7 @@ V1 的目标是：
 
 ## 2. V1 范围
 
-本期只覆盖以下 3 个源：
+本期覆盖以下 3 个源：
 
 - `https://claude.com/blog/category/claude-code`
 - `https://claude.com/blog/category/agents`
@@ -32,7 +32,8 @@ V1 的目标是：
 - 本地保存博客全文
 - 实时更新
 - 通用爬虫平台化
-- 智能体源生成（归入后续版本）
+
+注：智能体源生成已在本期实现（参见第 12.2 节）。
 
 ## 3. 总体方案
 
@@ -43,32 +44,33 @@ V1 的目标是：
 - 所有源统一整理成同一种内部数据结构
 - 再分别渲染成 3 个 RSS XML 文件
 
+新增源的方式：
+
+- 在仓库根目录 `sources/` 下提交一个 YAML 配置文件
+- Actions 运行时若没有现成解析器，自动调用智能体生成
+
 发布方式：
 
 - GitHub Actions 负责定时执行
 - XML 文件由 Actions 直接上传为 Pages Artifact，不写入 Git 仓库
 - GitHub Pages 负责对外托管
 
-这个方案的重点是：
-
-- 结构简单
-- 改动边界清晰
-- 新增源时只需要增加对应解析模块
-
 ## 4. 数据流
 
 每次执行的流程如下：
 
-1. 拉取所有源内容
-2. 按源类型解析出条目
-3. 归一化为统一的内部条目结构
-4. 渲染为 RSS XML 文件，写入本地 `public/` 目录
-5. 由 GitHub Actions 将 `public/` 上传为 Pages Artifact
-6. `deploy-pages` Action 将 Artifact 发布到 GitHub Pages
+1. 读取 `sources/*.yml`，构建源配置列表
+2. 为每个源动态加载解析器（手写 → 已生成 → 智能体生成）
+3. 抓取并解析内容，归一化为统一的内部条目结构
+4. 验证条目合法性
+5. 渲染为 RSS XML 文件，写入本地 `public/` 目录
+6. 由 GitHub Actions 将 `public/` 上传为 Pages Artifact
+7. `deploy-pages` Action 将 Artifact 发布到 GitHub Pages
 
 关键约定：
 
 - XML 文件只存在于 Actions 运行时的临时磁盘上，**不提交到 Git**
+- 生成的解析器脚本（`src/sources/generated/*.ts`）**提交到 Git** 以缓存复用
 - 无 JSON 快照；不需要调试时直接查看 Actions 运行日志
 
 ## 5. 源设计
@@ -128,6 +130,8 @@ V1 的目标是：
 所有源统一转换为如下结构：
 
 ```ts
+type FeedSource = string
+
 type FeedItem = {
   id: string
   title: string
@@ -135,7 +139,17 @@ type FeedItem = {
   publishedAt: string  // ISO-8601
   summary?: string
   contentHtml?: string
-  source: "claude-code" | "agents" | "claude-code-changelog"
+  source: FeedSource
+}
+
+type FeedConfig = {
+  slug: string          // 源标识符，与 YAML 文件名对应
+  feedTitle: string
+  feedDescription: string
+  siteUrl: string
+  feedUrl: string       // 由 slug 计算
+  fetchUrl: string
+  outputXml: string     // 由 slug 计算
 }
 ```
 
@@ -145,6 +159,7 @@ type FeedItem = {
 - `publishedAt` 统一使用 ISO-8601
 - `summary` 主要用于博客分类页
 - `contentHtml` 主要用于 changelog 条目内容
+- `FeedItem.source` 与 `FeedConfig.slug` 一致
 
 ## 7. 输出约定
 
@@ -163,32 +178,46 @@ type FeedItem = {
 ## 8. 仓库结构
 
 ```
+sources/
+  claude-code.yml             # 源配置（slug、URL、标题等）
+  agents.yml
+  claude-code-changelog.yml
+scripts/
+  generate-source.ts          # 智能体生成循环（Anthropic SDK）
 src/
   sources/
-    claudeCategory.ts     # 博客分类页抓取与解析
-    claudeChangelog.ts    # changelog markdown 解析
+    claude-code.ts            # 手写解析器 wrapper
+    agents.ts
+    claude-code-changelog.ts
+    claudeCategory.ts         # 博客分类页抓取与解析逻辑
+    claudeChangelog.ts        # changelog markdown 解析逻辑
+    generated/
+      .gitkeep                # 目录占位，生成的脚本提交到此处
+      {slug}.ts               # 智能体生成的解析器（按需创建）
   render/
-    rss.ts                # RSS XML 渲染
-  types.ts                # 公共类型定义
-  update.ts               # 更新任务总入口
+    rss.ts                    # RSS XML 渲染
+  types.ts                    # 公共类型定义
+  update.ts                   # 更新任务总入口
 test/
-  fixtures/               # 解析测试用的最小 HTML / markdown 片段
+  fixtures/                   # 解析测试用的最小 HTML / markdown 片段
   claudeCategory.test.ts
   claudeChangelog.test.ts
   rss.test.ts
 .github/
   workflows/
-    update-feeds.yml      # 定时更新 + 发布
+    update-feeds.yml          # 定时更新 + 发布
 docs/
-  superpowers/specs/      # 设计文档
+  superpowers/specs/          # 设计文档
 ```
 
 职责划分如下：
 
-- `sources/`：各源的抓取与解析
-- `types.ts`：公共类型
-- `render/rss.ts`：RSS 渲染
-- `update.ts`：一次更新任务的总入口
+- `sources/`：YAML 源配置（一个文件 = 一个源）
+- `scripts/generate-source.ts`：智能体生成新源解析器
+- `src/sources/`：各源的解析器（手写或生成）
+- `src/types.ts`：公共类型
+- `src/render/rss.ts`：RSS 渲染
+- `src/update.ts`：一次更新任务的总入口
 
 ## 9. 部署设计
 
@@ -197,6 +226,7 @@ docs/
 - 代码托管在 GitHub
 - 定时任务运行在 GitHub Actions
 - XML 由 Actions 上传 Pages Artifact，**不经过 git commit**
+- 生成的解析器脚本**由 Actions 提交到 Git**（带 `[skip ci]` 标签避免循环触发）
 - GitHub Pages 负责对外服务
 
 工作流（单个 `update` Job）：
@@ -204,11 +234,14 @@ docs/
 1. checkout 代码
 2. `npm install`
 3. `npm test`（先跑测试）
-4. `npm start`（生成 `public/*.xml`）
-5. `upload-pages-artifact path: public/`
-6. `deploy-pages`
+4. `npm start`（使用 `ANTHROPIC_API_KEY`，生成 `public/*.xml`；如有新源则自动生成解析器）
+5. 提交 `src/sources/generated/` 下的变更（即使 `npm start` 失败也执行，以保留删除操作）
+6. `upload-pages-artifact path: public/`
+7. `deploy-pages`
 
-不再有独立的 `deploy` Job，也不再有向 Git 提交的步骤。
+所需 Actions 权限：`contents: write`（用于提交生成的解析器）、`pages: write`、`id-token: write`
+
+所需仓库 Secret：`ANTHROPIC_API_KEY`
 
 ## 10. 失败处理
 
@@ -218,6 +251,12 @@ docs/
 - 采用 `Promise.allSettled` 确保所有源独立运行
 - 任一源失败时，进程以非零状态退出，Actions 标记为失败
 - 由于 XML 不提交到 Git，失败时不存在"用旧结果兜底"的概念；上一次成功部署的结果仍然对外有效，直到下次成功部署覆盖
+
+生成解析器的失败处理：
+
+- 解析器运行时出现硬错误（HTTP 失败、解析崩溃、验证不通过）时，自动删除已生成的 `.ts` 文件
+- 删除操作由 Actions 的 "Commit generated scrapers" 步骤（`if: always()`）提交到 Git
+- 下次 Actions 运行时重新触发智能体生成
 
 ## 11. 测试策略
 
@@ -237,39 +276,49 @@ docs/
 
 ## 12. 可扩展性
 
-### 12.1 手写解析器模式（当前）
+### 12.1 手写解析器模式
 
-后续新增源时，优先沿用当前模式：
+新增源时，优先沿用手写模式：
 
-- 每个源单独建模块
-- 共享抓取、日期处理和 RSS 渲染能力
-- 当某个源必须依赖浏览器执行时，再单独引入 Playwright，不影响其他源
+- 在 `sources/` 下新建 YAML 配置
+- 在 `src/sources/{slug}.ts` 实现 `fetchFeed(config): Promise<FeedItem[]>`
+- 手写解析器始终优先于生成解析器
 
-### 12.2 智能体生成解析器模式（规划中）
+### 12.2 智能体生成解析器模式（已实现）
 
-对于难以手写解析逻辑的新源，未来可引入智能体辅助生成：
+对于没有手写解析器的新源，系统自动调用智能体生成解析器。
 
 **触发方式：**
 
-在仓库 `sources/` 目录下提交一个 YAML 文件（如 `sources/my-blog.yml`），包含目标 URL 和 slug，即可触发 Actions 工作流启动智能体生成流程。
+在仓库 `sources/` 目录下提交一个 YAML 文件（如 `sources/my-blog.yml`），包含目标 URL 和 slug，即可在下次 Actions 运行时自动触发智能体生成。
+
+**解析器加载优先级：**
+
+```
+1. src/sources/{slug}.ts（手写，优先）
+2. src/sources/generated/{slug}.ts（已生成，缓存复用）
+3. scripts/generate-source.ts → 生成并写入 src/sources/generated/{slug}.ts
+```
 
 **智能体行为：**
 
-由 `scripts/generate-source.ts` 实现一个完整的智能体循环（agent loop），使用 Anthropic SDK 调用 Claude：
+由 `scripts/generate-source.ts` 实现完整的智能体循环（agent loop），使用 Anthropic SDK 调用 Claude：
 
-- 工具集：`fetch_html`（HTTP 抓取）、`fetch_with_browser`（Playwright 无头浏览器，懒加载）、`run_code`（执行候选脚本验证输出）、`write_scraper`（写出最终脚本）
-- 模型：`claude-opus-4-7`，启用 adaptive thinking
-- 循环退出条件：调用 `write_scraper` 工具，或达到最大轮次
+- 工具集：`fetch_html`（HTTP 抓取）、`fetch_with_browser`（Playwright 无头浏览器，懒加载）、`run_code`（用 tsx 执行候选脚本验证输出）、`write_scraper`（写出最终脚本）
+- 模型：`claude-opus-4-7`，启用 extended thinking（budget_tokens: 10000）
+- 最大轮次：10 轮
+- 循环退出条件：调用 `write_scraper` 工具
 
 **生成产物：**
 
 - 输出文件：`src/sources/generated/{slug}.ts`
-- 结构与手写解析器一致，导出 `fetchFeed(config): Promise<FeedItem[]>`
+- 结构与手写解析器一致，导出 `fetchFeed(config: FeedConfig): Promise<FeedItem[]>`
+- 生成后提交到 Git 供后续复用
 
 **缓存与失效：**
 
 - 已生成的脚本直接复用，无需重复生成
-- 脚本运行时出现硬错误（HTTP 失败、解析崩溃）时，自动删除脚本并在下次 Actions 运行时重新生成
+- 脚本运行时出现硬错误（HTTP 失败、解析崩溃、验证不通过）时，自动删除脚本并在下次 Actions 运行时重新生成
 - 输出静默但内容明显不对时，由用户手动删除脚本触发重新生成
 
 **验证合约（强制）：**
@@ -280,7 +329,7 @@ docs/
 - 每条 `FeedItem` 包含非空的 `id`、`title`、`url`、`publishedAt`
 - `publishedAt` 可被 `new Date()` 解析为有效日期
 
-验证不通过视为硬错误，与运行崩溃等同处理。
+验证不通过视为硬错误，与运行崩溃等同处理，触发脚本删除与重新生成。
 
 ## 13. V1 成功标准
 
@@ -290,5 +339,6 @@ docs/
 - GitHub Actions 可以按日更新
 - 普通 RSS 阅读器可以直接订阅公开 URL
 - 单个源失败时，不会破坏其他已发布结果
+- 新增源只需提交一个 YAML 文件，无需手写解析器
 
 注：由于采用 Artifact 直接发布方案，每次 Actions 运行都会重新部署，即使内容未变化。对个人项目而言，每日幂等部署是可接受的代价。
