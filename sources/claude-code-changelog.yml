@@ -1,0 +1,4 @@
+slug: claude-code-changelog
+feedTitle: Claude Code Changelog
+feedDescription: Version updates for Claude Code
+url: https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md
