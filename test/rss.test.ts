@@ -67,6 +67,15 @@ describe("renderRss", () => {
     expect(xml).toContain("<![CDATA[<p>Some <b>HTML</b> content.</p>]]>")
   })
 
+  it("escapes CDATA terminator in contentHtml", () => {
+    const xml = renderRss(
+      [{ id: "x", title: "x", url: "https://x.com", publishedAt: new Date().toISOString(), contentHtml: "a]]>b", source: "test" }],
+      config
+    )
+    expect(xml).toContain("<![CDATA[a]]]]><![CDATA[>b]]>")
+    expect(xml).not.toContain("a]]>b")
+  })
+
   it("renders empty feed without crashing", () => {
     const xml = renderRss([], config)
     expect(xml).toContain("<channel>")

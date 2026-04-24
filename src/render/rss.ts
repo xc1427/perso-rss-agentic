@@ -24,7 +24,7 @@ ${itemsXml}
 
 function renderItem(item: FeedItem): string {
   const description = item.contentHtml
-    ? `<![CDATA[${item.contentHtml}]]>`
+    ? `<![CDATA[${item.contentHtml.replace(/]]>/g, "]]]]><![CDATA[>")}]]>`
     : item.summary
     ? esc(item.summary)
     : ""
