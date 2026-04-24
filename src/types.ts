@@ -14,8 +14,7 @@ export type FeedConfig = {
   slug: string
   feedTitle: string
   feedDescription: string
-  siteUrl: string
+  url: string
   feedUrl: string
-  fetchUrl: string
   outputXml: string
 }

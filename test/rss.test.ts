@@ -6,9 +6,8 @@ const config: FeedConfig = {
   slug: "claude-code",
   feedTitle: "Claude Code Blog",
   feedDescription: "Latest posts",
-  siteUrl: "https://claude.com/blog/category/claude-code",
+  url: "https://claude.com/blog/category/claude-code",
   feedUrl: "https://example.github.io/rss/claude-code.xml",
-  fetchUrl: "https://claude.com/blog/category/claude-code",
   outputXml: "public/claude-code.xml",
 }
 

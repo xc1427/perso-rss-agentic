@@ -1,5 +1,4 @@
 slug: claude-code-changelog
 feedTitle: Claude Code Changelog
 feedDescription: Version updates for Claude Code
-siteUrl: https://code.claude.com/docs/en/changelog
-fetchUrl: https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md
+url: https://raw.githubusercontent.com/anthropics/claude-code/refs/heads/main/CHANGELOG.md

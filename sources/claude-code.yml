@@ -1,5 +1,4 @@
 slug: claude-code
 feedTitle: Claude Code Blog
 feedDescription: Latest posts from the Claude Code blog
-siteUrl: https://claude.com/blog/category/claude-code
-fetchUrl: https://claude.com/blog/category/claude-code
+url: https://claude.com/blog/category/claude-code

@@ -10,8 +10,7 @@ interface SourceYaml {
   slug: string
   feedTitle: string
   feedDescription: string
-  siteUrl: string
-  fetchUrl: string
+  url: string
 }
 
 type ScraperModule = { fetchFeed: (config: FeedConfig) => Promise<FeedItem[]> }
@@ -25,9 +24,8 @@ function loadConfigs(): FeedConfig[] {
       slug: yml.slug,
       feedTitle: yml.feedTitle,
       feedDescription: yml.feedDescription,
-      siteUrl: yml.siteUrl,
+      url: yml.url,
       feedUrl: `${PAGES_BASE}/${yml.slug}.xml`,
-      fetchUrl: yml.fetchUrl,
       outputXml: `public/${yml.slug}.xml`,
     }
   })

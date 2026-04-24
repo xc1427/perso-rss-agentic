@@ -124,9 +124,8 @@ type FeedConfig = {
   slug: string
   feedTitle: string
   feedDescription: string
-  siteUrl: string
+  url: string
   feedUrl: string
-  fetchUrl: string
   outputXml: string
 }`
 
@@ -137,7 +136,7 @@ ${JSON.stringify(config, null, 2)}
 
 Your scraper must:
 1. Export: \`export async function fetchFeed(config: FeedConfig): Promise<FeedItem[]>\`
-2. Fetch content from \`config.fetchUrl\`
+2. Fetch content from \`config.url\`
 3. Return an array of FeedItem objects where:
    - \`source\` is set to \`config.slug\`
    - \`publishedAt\` is a valid ISO-8601 date string
@@ -151,7 +150,7 @@ ${typeDefinitions}
 Import types from: \`import type { FeedConfig, FeedItem } from "../../types.js"\`
 
 Steps:
-1. Use fetch_html to inspect the page at config.fetchUrl
+1. Use fetch_html to inspect the page at config.url
 2. Write and test a candidate with run_code — confirm it returns valid items
 3. Call write_scraper with the final working code`
 

@@ -13,7 +13,7 @@ export function renderRss(items: FeedItem[], config: FeedConfig): string {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${esc(config.feedTitle)}</title>
-    <link>${esc(config.siteUrl)}</link>
+    <link>${esc(config.url)}</link>
     <description>${esc(config.feedDescription)}</description>
     <atom:link href="${esc(config.feedUrl)}" rel="self" type="application/rss+xml"/>
     <lastBuildDate>${buildDate}</lastBuildDate>

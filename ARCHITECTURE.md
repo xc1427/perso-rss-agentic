@@ -47,11 +47,10 @@ Each source is a YAML file in `sources/`:
 slug: claude-code
 feedTitle: Claude Code Blog
 feedDescription: Latest posts from the Claude Code blog
-siteUrl: https://claude.com/blog/category/claude-code
-fetchUrl: https://claude.com/blog/category/claude-code
+url: https://claude.com/blog/category/claude-code
 ```
 
-`feedUrl` (`https://xc1427.github.io/perso-rss-agentic/{slug}.xml`) and `outputXml` (`public/{slug}.xml`) are computed at runtime from `slug`.
+`feedUrl` (`https://xc1427.github.io/perso-rss-agentic/{slug}.xml`) and `outputXml` (`public/{slug}.xml`) are computed at runtime from `slug`. `url` is both the fetch target and the RSS `<link>` value; for sources like the changelog it points to the raw content URL.
 
 ## Core Types
 
@@ -72,9 +71,8 @@ type FeedConfig = {
   slug: string
   feedTitle: string
   feedDescription: string
-  siteUrl: string
+  url: string
   feedUrl: string      // computed from slug
-  fetchUrl: string
   outputXml: string    // computed from slug
 }
 ```
