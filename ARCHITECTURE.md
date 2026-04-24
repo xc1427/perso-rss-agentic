@@ -2,7 +2,7 @@
 
 ## What the System Does
 
-A TypeScript pipeline that scrapes web sources without native RSS feeds and publishes them as RSS XML files via GitHub Pages. Sources are declared in YAML; scrapers are either hand-written TypeScript modules or generated on-demand by a Claude agent.
+A TypeScript pipeline that scrapes web sources without native RSS feeds and publishes them as RSS XML files via GitHub Pages. Sources are declared in YAML; scrapers are generated on-demand by a Claude agent and cached in git.
 
 ## Repository Layout
 
@@ -19,11 +19,8 @@ src/
   update.ts                       # Pipeline entry point
   types.ts                        # Shared TypeScript types
   sources/
-    claude-code.ts                # Hand-written scraper wrapper
-    agents.ts
-    claude-code-changelog.ts
-    claudeCategory.ts             # HTML parsing logic for blog category pages
-    claudeChangelog.ts            # Markdown parsing logic for the changelog feed
+    claudeCategory.ts             # HTML parsing logic (used by generated scrapers)
+    claudeChangelog.ts            # Markdown parsing logic (used by generated scrapers)
     generated/                    # Agent-generated scrapers (committed to git)
       .gitkeep
   render/
@@ -79,19 +76,22 @@ type FeedConfig = {
 
 ## Scraper Contract
 
-Every scraper module (hand-written or generated) exports:
+Every generated scraper exports:
 
 ```typescript
 export async function fetchFeed(config: FeedConfig): Promise<FeedItem[]>
 ```
 
-## Scraper Loading Priority
+## Scraper Loading
 
 For each source `slug`, `update.ts` tries in order:
 
-1. `src/sources/{slug}.ts` — hand-written (always wins if present)
-2. `src/sources/generated/{slug}.ts` — previously generated (cached)
-3. `scripts/generate-source.ts → generateScraper(slug, config)` — agent generates and writes to `src/sources/generated/{slug}.ts`, then imports it
+1. `src/sources/generated/{slug}.ts` — previously generated (cached in git)
+2. `scripts/generate-source.ts → generateScraper(slug, config)` — agent generates and writes to `src/sources/generated/{slug}.ts`, then imports it
+
+## Hand-Written Scrapers
+
+Hand-written scrapers are not part of the current design. All scrapers are agent-generated to keep the loading path simple and uniform. A hand-written scraper layer may be introduced later as an escape hatch for cases where the generated scraper is persistently flawed and manual intervention is needed.
 
 ## Output Validation
 
@@ -105,7 +105,7 @@ Validation failure is treated as a hard error (same as a thrown exception).
 
 ## Auto-Invalidation of Generated Scrapers
 
-If `fetchFeed` throws or validation fails on a generated scraper, `update.ts` deletes `src/sources/generated/{slug}.ts`. The CI step that commits generated scrapers runs with `if: always()`, so deletions are committed even when the pipeline fails — the scraper will be regenerated on the next run.
+If `fetchFeed` throws or validation fails, `update.ts` deletes `src/sources/generated/{slug}.ts`. The CI step that commits generated scrapers runs with `if: always()`, so deletions are committed even when the pipeline fails — the scraper will be regenerated on the next run.
 
 ## Agent-Generation Loop (`scripts/generate-source.ts`)
 
@@ -123,7 +123,7 @@ Uses `@anthropic-ai/sdk` with `claude-opus-4-7` and extended thinking (`budget_t
 ```
 sources/*.yml
   → update.ts reads configs
-  → per source: loadScraper (hand-written | generated | auto-generate)
+  → per source: loadScraper (cached generated | auto-generate)
   → fetchFeed(config) → FeedItem[]
   → validateItems
   → renderRss → public/{slug}.xml
@@ -150,4 +150,4 @@ Required permissions: `contents: write`, `pages: write`, `id-token: write`.
 
 ## Adding a New Source
 
-Drop a YAML file in `sources/`. If no hand-written scraper exists for the slug, the pipeline auto-generates one on the first run and commits it. No other changes required.
+Drop a YAML file in `sources/`. The pipeline auto-generates a scraper on the first run and commits it. No other changes required.

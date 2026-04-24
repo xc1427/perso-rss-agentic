@@ -13,7 +13,7 @@ All specifications and implementation plans in this repository must be authored 
 ## Key Conventions
 
 - Each feed source is declared in `sources/{slug}.yml`; no code changes are needed to add a source
-- Hand-written scrapers (`src/sources/{slug}.ts`) always take priority over generated ones (`src/sources/generated/{slug}.ts`)
+- All scrapers are agent-generated and live in `src/sources/generated/{slug}.ts`
 - All scrapers export `fetchFeed(config: FeedConfig): Promise<FeedItem[]>`
 - `FeedItem.source` must equal `FeedConfig.slug`
 - `FeedConfig.slug` drives both the output path (`public/{slug}.xml`) and the feed URL

@@ -31,19 +31,10 @@ function loadConfigs(): FeedConfig[] {
   })
 }
 
-async function loadScraper(slug: string, config: FeedConfig): Promise<{ module: ScraperModule; isGenerated: boolean }> {
-  // Hand-written scraper takes priority
-  try {
-    const mod = await import(`./sources/${slug}.js`) as ScraperModule
-    return { module: mod, isGenerated: false }
-  } catch {
-    // no-op — fall through to generated
-  }
-
+async function loadScraper(slug: string, config: FeedConfig): Promise<ScraperModule> {
   // Try cached generated scraper
   try {
-    const mod = await import(`./sources/generated/${slug}.js`) as ScraperModule
-    return { module: mod, isGenerated: true }
+    return await import(`./sources/generated/${slug}.js`) as ScraperModule
   } catch {
     // no-op — fall through to agent generation
   }
@@ -52,8 +43,7 @@ async function loadScraper(slug: string, config: FeedConfig): Promise<{ module: 
   console.log(`  No scraper found for ${slug} — generating via agent...`)
   const { generateScraper } = await import("../scripts/generate-source.js")
   await generateScraper(slug, config)
-  const mod = await import(`./sources/generated/${slug}.js`) as ScraperModule
-  return { module: mod, isGenerated: true }
+  return await import(`./sources/generated/${slug}.js`) as ScraperModule
 }
 
 function validateItems(items: FeedItem[], slug: string): void {
@@ -77,19 +67,17 @@ function writeFeed(filePath: string, content: string): void {
 }
 
 async function updateFeed(config: FeedConfig): Promise<void> {
-  const { module: scraper, isGenerated } = await loadScraper(config.slug, config)
+  const scraper = await loadScraper(config.slug, config)
 
   let items: FeedItem[]
   try {
     items = await scraper.fetchFeed(config)
     validateItems(items, config.slug)
   } catch (err) {
-    if (isGenerated) {
-      const generatedPath = `src/sources/generated/${config.slug}.ts`
-      if (existsSync(generatedPath)) {
-        rmSync(generatedPath)
-        console.error(`  Deleted broken generated scraper: ${generatedPath}`)
-      }
+    const generatedPath = `src/sources/generated/${config.slug}.ts`
+    if (existsSync(generatedPath)) {
+      rmSync(generatedPath)
+      console.error(`  Deleted broken generated scraper: ${generatedPath}`)
     }
     throw err
   }
