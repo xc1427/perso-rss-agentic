@@ -80,4 +80,40 @@ describe("renderRss", () => {
     const xml = renderRss([], config)
     expect(xml).toContain("<channel>")
   })
+
+  it("emits an enclosure when imageUrl is present and infers MIME from extension", () => {
+    const xml = renderRss(
+      [{
+        id: "img-1",
+        title: "With image",
+        url: "https://x.com/post",
+        publishedAt: "2024-04-01T00:00:00.000Z",
+        imageUrl: "https://cdn.example.com/hero.png?v=2",
+        source: "claude-code",
+      }],
+      config
+    )
+    expect(xml).toContain('<enclosure url="https://cdn.example.com/hero.png?v=2" length="0" type="image/png"/>')
+  })
+
+  it("omits enclosure when imageUrl is absent", () => {
+    const xml = renderRss(items, config)
+    expect(xml).not.toContain("<enclosure")
+  })
+
+  it("escapes special characters in imageUrl and defaults unknown extensions to image/jpeg", () => {
+    const xml = renderRss(
+      [{
+        id: "img-2",
+        title: "T",
+        url: "https://x.com/p",
+        publishedAt: "2024-04-01T00:00:00.000Z",
+        imageUrl: "https://cdn.example.com/path?q=a&b=c",
+        source: "claude-code",
+      }],
+      config
+    )
+    expect(xml).toContain('url="https://cdn.example.com/path?q=a&amp;b=c"')
+    expect(xml).toContain('type="image/jpeg"')
+  })
 })

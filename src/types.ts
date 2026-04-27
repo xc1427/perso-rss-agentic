@@ -7,6 +7,7 @@ export type FeedItem = {
   publishedAt: string // ISO-8601
   summary?: string
   contentHtml?: string
+  imageUrl?: string // absolute URL to a representative image, if available
   source: FeedSource
 }
 

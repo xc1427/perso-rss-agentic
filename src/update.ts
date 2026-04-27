@@ -35,8 +35,14 @@ async function loadScraper(slug: string, config: FeedConfig): Promise<ScraperMod
   // Try cached generated scraper
   try {
     return await import(`./sources/generated/${slug}.js`) as ScraperModule
-  } catch {
-    // no-op — fall through to agent generation
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code
+    if (code !== "ERR_MODULE_NOT_FOUND") {
+      // The file exists but is broken (syntax error, bad import). Surface it
+      // instead of silently regenerating — a poisoned cached scraper would
+      // otherwise be regenerated on every run.
+      console.error(`  Cached scraper for ${slug} failed to load: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
   // Auto-generate via Anthropic agent
@@ -55,6 +61,17 @@ function validateItems(items: FeedItem[], slug: string): void {
     if (!item.publishedAt?.trim()) throw new Error(`${slug}: item missing publishedAt`)
     if (isNaN(new Date(item.publishedAt).getTime())) {
       throw new Error(`${slug}: invalid publishedAt: ${item.publishedAt}`)
+    }
+    if (item.source !== slug) {
+      throw new Error(`${slug}: item.source must equal "${slug}", got "${item.source}"`)
+    }
+    if (item.imageUrl !== undefined) {
+      if (typeof item.imageUrl !== "string" || !item.imageUrl.trim()) {
+        throw new Error(`${slug}: imageUrl, when present, must be a non-empty string`)
+      }
+      if (!/^https?:\/\//i.test(item.imageUrl)) {
+        throw new Error(`${slug}: imageUrl must be an absolute http(s) URL: ${item.imageUrl}`)
+      }
     }
   }
 }
