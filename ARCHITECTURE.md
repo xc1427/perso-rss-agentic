@@ -115,7 +115,7 @@ Uses `@anthropic-ai/sdk` with `deepseek-v4-flash` (via DeepSeek's Anthropic-comp
 |---|---|
 | `fetch_html` | HTTP GET with a 30 s timeout, returns `HTTP <status>\n<body>` capped at 80 KB; non-2xx is reported back as a tool failure |
 | `fetch_with_browser` | Headless Chromium via playwright (optional dep) reused across calls within one generation; `try/finally`-closes the page; falls back from `networkidle` to `domcontentloaded` so SPAs don't hang |
-| `run_code` | Executes TypeScript with `tsx` (30 s timeout), returns stdout+stderr capped at 10 KB |
+| `run_code` | Executes TypeScript with `tsx` (30 s timeout). Returns a structured result: an exit-status label, then `stderr` (errors, tail-trimmed to 5 KB), then `stdout` (logs, tail-trimmed to 5 KB). Stderr-first because compile errors, module-not-found, and tracebacks land there |
 | `write_scraper` | Writes the candidate to `src/sources/generated/{slug}.ts`, then immediately imports it (cache-busted URL) and runs the same validation as `update.ts`. On success the loop returns. On failure the file is deleted and the validation error is fed back to the agent so it can iterate within the remaining turns. |
 
 ## Data Flow

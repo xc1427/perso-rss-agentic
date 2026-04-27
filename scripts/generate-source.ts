@@ -124,9 +124,8 @@ async function executeTool(
         timeout: RUN_CODE_TIMEOUT_MS,
         cwd: process.cwd(),
       })
-      const output = (result.stdout ?? "") + (result.stderr ?? "")
       return {
-        output: output.slice(0, 10_000) || "(no output)",
+        output: formatRunCodeOutput(result),
         success: result.status === 0,
       }
     }
@@ -152,6 +151,34 @@ async function executeTool(
     default:
       return { output: `Unknown tool: ${name}`, success: false }
   }
+}
+
+function formatRunCodeOutput(result: ReturnType<typeof spawnSync>): string {
+  // Errors and tracebacks tend to land at the *end* of stderr; helpful debug logs
+  // tend to land at the *end* of stdout. Concatenating from the start with an
+  // overall budget would bury the most important text. Tail each stream separately
+  // and lead with the exit status so the agent can act on it without parsing.
+  const STDERR_BUDGET = 5_000
+  const STDOUT_BUDGET = 5_000
+
+  const tail = (s: string, budget: number): string =>
+    s.length > budget ? `…(truncated, last ${budget} chars)…\n${s.slice(-budget)}` : s
+
+  const stderr = String(result.stderr ?? "").trim()
+  const stdout = String(result.stdout ?? "").trim()
+
+  const exitLabel =
+    result.status === 0
+      ? "exit 0 (ok)"
+      : result.signal
+      ? `killed by ${result.signal} (likely timeout)`
+      : `exit ${result.status} (failure)`
+
+  const parts: string[] = [`[${exitLabel}]`]
+  if (stderr) parts.push(`--- stderr ---\n${tail(stderr, STDERR_BUDGET)}`)
+  if (stdout) parts.push(`--- stdout ---\n${tail(stdout, STDOUT_BUDGET)}`)
+  if (!stderr && !stdout) parts.push("(no output)")
+  return parts.join("\n")
 }
 
 async function validateGeneratedScraper(filePath: string, slug: string, config: FeedConfig): Promise<void> {
@@ -238,10 +265,29 @@ ${typeDefinitions}
 
 Import types from: \`import type { FeedConfig, FeedItem } from "../../types.js"\`
 
+Runtime available to your scraper and to run_code:
+- Node 20 with global \`fetch\` (no \`node-fetch\` needed)
+- \`cheerio\` for HTML parsing — use \`import * as cheerio from "cheerio"\` then \`cheerio.load(html)\`
+- TypeScript via \`tsx\` (the file is executed directly)
+
+NOT available (do not import these — you will get "Cannot find module"):
+- \`jsdom\`, \`puppeteer\`, \`axios\`, \`node-html-parser\`, or any other npm package outside of cheerio
+- \`playwright\` is installed but only usable through the \`fetch_with_browser\` tool; do not import it from a scraper
+
+Tips for JS-rendered / Next.js pages (common for blog listing pages):
+- Inspect the fetch_html body for \`<script id="__NEXT_DATA__" type="application/json">{...}</script>\`. The JSON inside often contains the listing items in \`props.pageProps\` — parsing it is faster and more stable than DOM scraping.
+- If no JSON island is present and the listing is empty in the raw HTML, fall back to fetch_with_browser, then parse the rendered DOM with cheerio.
+
+Reading run_code output:
+- Format: \`[exit X (ok|failure)] --- stderr --- … --- stdout --- …\`. Each stream is tail-trimmed (last 5 KB shown).
+- Always read \`exit\` first; if non-zero, the issue is almost always in stderr (module-not-found, TypeScript syntax error, runtime exception).
+- If a previous run_code reported "Cannot find module 'X'", X is not installed — switch strategy, do not re-import it.
+- If a selector returned 0 results, the selector is wrong or the page is JS-rendered — change approach, do not retry the same selector.
+
 Steps:
-1. Use fetch_html to inspect the page at config.url. If the body is mostly empty/skeletal HTML, the page is JS-rendered — switch to fetch_with_browser.
-2. Write and test a candidate with run_code — confirm it returns valid items.
-3. Call write_scraper. The runtime will import the file and invoke fetchFeed against the real config; if validation fails the file is deleted and you must iterate.`
+1. fetch_html the page once. If the body is empty/skeletal, either parse \`__NEXT_DATA__\` or fetch_with_browser.
+2. Use run_code to dump 1–2 sample items as JSON and confirm fields look right.
+3. Call write_scraper. It imports the file (cache-busted), invokes fetchFeed with the real config, and runs the same validation as production. On failure the file is deleted and you must iterate within the remaining turns — never retry the exact code that just failed.`
 
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: userMessage }]
 
@@ -252,7 +298,7 @@ Steps:
         max_tokens: 16000,
         thinking: { type: "enabled", budget_tokens: 10000 },
         system:
-          "You are an expert TypeScript developer generating RSS feed scrapers. Use the tools to understand the target page structure and write a working scraper. Always verify with run_code before calling write_scraper. If write_scraper reports validation failure, read the error carefully and try a different parsing strategy.",
+          "You are an expert TypeScript developer generating RSS feed scrapers. Tool results are structured: run_code returns an exit label, then stderr (errors) and stdout (logs), each tail-trimmed. Read the exit label first, then stderr — that is where module-not-found errors, TS syntax errors, and runtime exceptions land. Never retry the exact same code or import that just failed; change strategy. Verify with run_code before write_scraper. write_scraper writes the file, imports it, runs production validation, and reports any failure back to you.",
         tools: TOOLS,
         messages,
       })
