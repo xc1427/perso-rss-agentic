@@ -29,12 +29,13 @@ function renderItem(item: FeedItem): string {
     ? esc(item.summary)
     : ""
 
+  const descriptionLine = description ? `\n      <description>${description}</description>` : ""
+
   return `    <item>
       <title>${esc(item.title)}</title>
       <link>${esc(item.url)}</link>
       <guid isPermaLink="false">${esc(item.id)}</guid>
-      <pubDate>${toRfc822(new Date(item.publishedAt))}</pubDate>
-      <description>${description}</description>
+      <pubDate>${toRfc822(new Date(item.publishedAt))}</pubDate>${descriptionLine}
     </item>`
 }
 
