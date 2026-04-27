@@ -109,14 +109,14 @@ If `fetchFeed` throws or validation fails, `update.ts` deletes `src/sources/gene
 
 ## Agent-Generation Loop (`scripts/generate-source.ts`)
 
-Uses `@anthropic-ai/sdk` with `deepseek-v4-flash` (via DeepSeek's Anthropic-compatible API) and extended thinking (`budget_tokens: 10000`). Maximum 10 turns. Available tools:
+Uses `@anthropic-ai/sdk` with `deepseek-v4-flash` (via DeepSeek's Anthropic-compatible API) and extended thinking (`budget_tokens: 10000`). Maximum 15 turns. Available tools:
 
 | Tool | Description |
 |---|---|
-| `fetch_html` | HTTP GET, returns body capped at 80 KB |
-| `fetch_with_browser` | Headless Chromium via playwright (optional dep); falls back gracefully |
-| `run_code` | Executes TypeScript with `tsx`, returns stdout+stderr capped at 10 KB |
-| `write_scraper` | Writes the final module to `src/sources/generated/{slug}.ts` and terminates the loop |
+| `fetch_html` | HTTP GET with a 30 s timeout, returns `HTTP <status>\n<body>` capped at 80 KB; non-2xx is reported back as a tool failure |
+| `fetch_with_browser` | Headless Chromium via playwright (optional dep) reused across calls within one generation; `try/finally`-closes the page; falls back from `networkidle` to `domcontentloaded` so SPAs don't hang |
+| `run_code` | Executes TypeScript with `tsx` (30 s timeout). Returns a structured result: an exit-status label, then `stderr` (errors, tail-trimmed to 5 KB), then `stdout` (logs, tail-trimmed to 5 KB). Stderr-first because compile errors, module-not-found, and tracebacks land there |
+| `write_scraper` | Writes the candidate to `src/sources/generated/{slug}.ts`, then immediately imports it (cache-busted URL) and runs the same validation as `update.ts`. On success the loop returns. On failure the file is deleted and the validation error is fed back to the agent so it can iterate within the remaining turns. |
 
 ## Data Flow
 
@@ -135,12 +135,18 @@ sources/*.yml
 
 Workflow (`.github/workflows/update-feeds.yml`):
 
+Triggers: scheduled cron (`0 6 * * *`) and manual `workflow_dispatch` only — no `push`/`pull_request`. A `concurrency` group (`update-feeds`, `cancel-in-progress: false`) prevents a manual dispatch from racing the cron.
+
+Steps:
+
 1. `npm install`
-2. `npm test`
-3. `npm start` — requires `ANTHROPIC_API_KEY` secret; writes `public/*.xml`
-4. Commit `src/sources/generated/` changes back to git (`[skip ci]`, runs `if: always()`)
-5. Upload `public/` as Pages artifact
-6. Deploy to GitHub Pages
+2. Restore `~/.cache/ms-playwright` from the Actions cache (keyed by `package.json` hash)
+3. `npx playwright install --with-deps chromium`
+4. `npm test`
+5. `npm start` — needs `ANTHROPIC_API_KEY` (sourced from the `DEEPSEEK_API_KEY` secret) and `ANTHROPIC_BASE_URL` (sourced from the `DEEPSEEK_ANTHROPIC_COMPAT_BASE_URL` env variable); writes `public/*.xml`
+6. Commit `src/sources/generated/` changes back to git (`[skip ci]`, runs `if: always()`, pushes to `origin HEAD:$GITHUB_REF_NAME`)
+7. Upload `public/` as Pages artifact
+8. Deploy to GitHub Pages
 
 Required permissions: `contents: write`, `pages: write`, `id-token: write`.
 
