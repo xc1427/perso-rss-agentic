@@ -30,12 +30,15 @@ function renderItem(item: FeedItem): string {
     : ""
 
   const descriptionLine = description ? `\n      <description>${description}</description>` : ""
+  const enclosureLine = item.imageUrl
+    ? `\n      <enclosure url="${esc(item.imageUrl)}" length="0" type="${guessImageMime(item.imageUrl)}"/>`
+    : ""
 
   return `    <item>
       <title>${esc(item.title)}</title>
       <link>${esc(item.url)}</link>
       <guid isPermaLink="false">${esc(item.id)}</guid>
-      <pubDate>${toRfc822(new Date(item.publishedAt))}</pubDate>${descriptionLine}
+      <pubDate>${toRfc822(new Date(item.publishedAt))}</pubDate>${enclosureLine}${descriptionLine}
     </item>`
 }
 
@@ -45,6 +48,18 @@ function esc(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
+}
+
+function guessImageMime(url: string): string {
+  const ext = url.toLowerCase().match(/\.(jpe?g|png|gif|webp|svg|avif)(?:[?#]|$)/)?.[1]
+  switch (ext) {
+    case "png": return "image/png"
+    case "gif": return "image/gif"
+    case "webp": return "image/webp"
+    case "svg": return "image/svg+xml"
+    case "avif": return "image/avif"
+    default: return "image/jpeg"
+  }
 }
 
 function toRfc822(d: Date): string {

@@ -65,6 +65,14 @@ function validateItems(items: FeedItem[], slug: string): void {
     if (item.source !== slug) {
       throw new Error(`${slug}: item.source must equal "${slug}", got "${item.source}"`)
     }
+    if (item.imageUrl !== undefined) {
+      if (typeof item.imageUrl !== "string" || !item.imageUrl.trim()) {
+        throw new Error(`${slug}: imageUrl, when present, must be a non-empty string`)
+      }
+      if (!/^https?:\/\//i.test(item.imageUrl)) {
+        throw new Error(`${slug}: imageUrl must be an absolute http(s) URL: ${item.imageUrl}`)
+      }
+    }
   }
 }
 

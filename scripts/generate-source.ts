@@ -175,6 +175,14 @@ async function validateGeneratedScraper(filePath: string, slug: string, config: 
     if (item.source !== slug) {
       throw new Error(`item.source must equal "${slug}", got "${item.source}"`)
     }
+    if (item.imageUrl !== undefined) {
+      if (typeof item.imageUrl !== "string" || !item.imageUrl.trim()) {
+        throw new Error("imageUrl, when present, must be a non-empty string")
+      }
+      if (!/^https?:\/\//i.test(item.imageUrl)) {
+        throw new Error(`imageUrl must be an absolute http(s) URL: ${item.imageUrl}`)
+      }
+    }
   }
 }
 
@@ -191,6 +199,7 @@ type FeedItem = {
   publishedAt: string // ISO-8601
   summary?: string
   contentHtml?: string
+  imageUrl?: string  // optional absolute URL of a representative image
   source: FeedSource
 }
 
@@ -215,6 +224,12 @@ Your scraper must:
    - \`source\` is set to \`config.slug\` ("${slug}")
    - \`publishedAt\` is a valid ISO-8601 date string
    - \`id\`, \`title\`, and \`url\` are non-empty strings
+   - \`imageUrl\` (optional): if the listing already exposes a per-item thumbnail
+     (e.g. an \`<img>\` inside each card, or a \`background-image\` in inline CSS),
+     populate it with an **absolute** http(s) URL. If only a relative URL is
+     available, resolve it against \`config.url\` with \`new URL(rel, config.url).href\`.
+     Do **not** fetch each detail page just to grab og:image — keep this scraper
+     to a single listing-page request. If no image is available, omit the field.
 
 Type definitions to use (copy these into your module):
 \`\`\`typescript

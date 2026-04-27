@@ -56,6 +56,7 @@ type FeedItem = {
   publishedAt: string  // ISO-8601
   summary?: string
   contentHtml?: string
+  imageUrl?: string    // absolute http(s) URL of a representative image
   source: FeedSource   // equals FeedConfig.slug
 }
 
@@ -95,8 +96,10 @@ After `fetchFeed` returns, `update.ts` enforces:
 - At least 1 item returned
 - Each item has non-empty `id`, `title`, `url`, `publishedAt`
 - `new Date(item.publishedAt)` produces a valid date
+- `item.source` equals the source's `slug`
+- `imageUrl`, when present, is a non-empty absolute `http(s)` URL
 
-Validation failure is treated as a hard error (same as a thrown exception).
+Validation failure is treated as a hard error (same as a thrown exception). The agent runs the same validation in-process immediately after `write_scraper` and reports failures back to itself for iteration.
 
 ## Auto-Invalidation of Generated Scrapers
 
