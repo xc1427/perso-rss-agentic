@@ -37,7 +37,7 @@ Each source is a YAML file in `sources/`:
 
 ```yaml
 slug: claude-blog-cat-claude-code
-feedTitle: Claude Blog (category: claude-code)
+feedTitle: "Claude Blog (category: claude-code)"
 feedDescription: Latest posts in the Claude blog "claude-code" category
 url: https://claude.com/blog/category/claude-code
 ```
