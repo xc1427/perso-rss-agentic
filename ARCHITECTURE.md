@@ -8,8 +8,8 @@ A TypeScript pipeline that scrapes web sources without native RSS feeds and publ
 
 ```
 sources/                          # One YAML file per feed source
-  claudeai-tag-claude-code.yml
-  claudeai-tag-agents.yml
+  claude-blog-cat-claude-code.yml
+  claude-blog-cat-agents.yml
   claude-code-changelog.yml
 
 scripts/
@@ -36,9 +36,9 @@ test/
 Each source is a YAML file in `sources/`:
 
 ```yaml
-slug: claudeai-tag-claude-code
-feedTitle: Claude.ai Blog (tag: claude-code)
-feedDescription: Latest posts on the Claude.ai blog tagged "claude-code"
+slug: claude-blog-cat-claude-code
+feedTitle: Claude Blog (category: claude-code)
+feedDescription: Latest posts in the Claude blog "claude-code" category
 url: https://claude.com/blog/category/claude-code
 ```
 
