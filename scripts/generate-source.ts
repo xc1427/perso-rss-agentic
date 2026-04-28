@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk"
-import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
+import { writeFileSync, appendFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
@@ -8,6 +8,10 @@ import type { FeedConfig, FeedItem } from "../src/types.js"
 
 const MAX_TURNS = 15
 const GENERATED_DIR = "src/sources/generated"
+const LOGS_DIR = "logs"
+// Larger than every per-tool cap (run_code: 10 KB combined; fetch_*: 80 KB) so the
+// transcript on disk is never less than what the agent itself received.
+const LOG_ENTRY_BUDGET = 100_000
 // Cloudflare and similar WAFs block User-Agents containing "bot". Use a real
 // browser UA so inspection requests aren't rejected before the agent can see
 // the page structure.
@@ -217,9 +221,23 @@ async function validateGeneratedScraper(filePath: string, slug: string, config: 
   }
 }
 
+function truncateForLog(s: string): string {
+  if (s.length <= LOG_ENTRY_BUDGET) return s
+  return `${s.slice(0, LOG_ENTRY_BUDGET)}\n…(truncated, ${s.length - LOG_ENTRY_BUDGET} chars omitted from log)…`
+}
+
+function openTranscript(slug: string): (chunk: string) => void {
+  mkdirSync(LOGS_DIR, { recursive: true })
+  const path = `${LOGS_DIR}/agent-${slug}.log`
+  // Truncate any prior log for this slug so each generation run starts fresh.
+  writeFileSync(path, `# Agent transcript for slug=${slug}\n# started=${new Date().toISOString()}\n\n`, "utf-8")
+  return (chunk: string) => appendFileSync(path, chunk, "utf-8")
+}
+
 export async function generateScraper(slug: string, config: FeedConfig): Promise<void> {
   const client = new Anthropic()
   const ctx: ToolCtx = { browser: null }
+  const log = openTranscript(slug)
 
   const typeDefinitions = `type FeedSource = string
 
@@ -305,6 +323,7 @@ Steps:
 
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
+      log(`\n========== Turn ${turn + 1}/${MAX_TURNS} ==========\n`)
       const response = await client.messages.create({
         model: "deepseek-v4-flash",
         max_tokens: 16000,
@@ -316,6 +335,19 @@ Steps:
       })
 
       messages.push({ role: "assistant", content: response.content })
+
+      log(`stop_reason: ${response.stop_reason}\n`)
+      for (const block of response.content) {
+        if (block.type === "thinking") {
+          log(`\n--- assistant thinking ---\n${truncateForLog(block.thinking)}\n`)
+        } else if (block.type === "text") {
+          log(`\n--- assistant text ---\n${truncateForLog(block.text)}\n`)
+        } else if (block.type === "tool_use") {
+          log(
+            `\n--- tool_use: ${block.name} (id=${block.id}) ---\n${truncateForLog(JSON.stringify(block.input, null, 2))}\n`
+          )
+        }
+      }
 
       const toolUses = response.content.filter(
         (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
@@ -339,16 +371,26 @@ Steps:
           config,
           ctx
         )
+        log(
+          `\n--- tool_result: ${toolUse.name} (id=${toolUse.id}, success=${success}) ---\n${truncateForLog(output)}\n`
+        )
         toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: output })
         if (toolUse.name === "write_scraper" && success) scraperValidated = true
       }
 
       messages.push({ role: "user", content: toolResults })
 
-      if (scraperValidated) return
+      if (scraperValidated) {
+        log(`\n========== Generation succeeded on turn ${turn + 1} ==========\n`)
+        return
+      }
     }
 
     throw new Error(`Scraper generation for ${slug} failed: max turns (${MAX_TURNS}) exceeded`)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    log(`\n========== Generation FAILED ==========\n${msg}\n`)
+    throw err
   } finally {
     if (ctx.browser) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
