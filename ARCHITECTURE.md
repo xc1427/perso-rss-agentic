@@ -150,14 +150,14 @@ Steps:
 4. `npm test`
 5. `npm start` — needs `ANTHROPIC_API_KEY` (sourced from the `DEEPSEEK_API_KEY` secret) and `ANTHROPIC_BASE_URL` (sourced from the `DEEPSEEK_ANTHROPIC_COMPAT_BASE_URL` env variable); writes `public/*.xml`
 6. Commit `src/sources/generated/` changes back to git (`[skip ci]`, runs `if: always()`, pushes to `origin HEAD:$GITHUB_REF_NAME`)
-7. Upload `public/` as Pages artifact
-8. Deploy to GitHub Pages
+7. Upload `public/` as Pages artifact (runs with `if: always() && hashFiles('public/*.xml') != ''` so a partial-failure run still deploys the feeds that did succeed; skipped only when zero feeds were written, in which case the previous live deployment is preserved)
+8. Deploy to GitHub Pages (same condition as step 7)
 
 Required permissions: `contents: write`, `pages: write`, `id-token: write`.
 
 ## Failure Isolation
 
-`update.ts` runs all sources under `Promise.allSettled`, so one source failing does not block others. The process exits non-zero if any source fails, causing the Actions job to be marked failed. Because XML files are not committed to git, the previously deployed artifacts remain live until the next successful run.
+`update.ts` runs all sources under `Promise.allSettled`, so one source failing does not block others. The process exits non-zero if any source fails, which marks the Actions job as failed — but the upload + deploy steps still run (`if: always()`) as long as at least one feed XML was written, so partial successes ship to Pages. If every source fails, no XML is written, the upload + deploy steps are skipped, and the previously deployed artifacts remain live until the next run with at least one success.
 
 ## Adding a New Source
 

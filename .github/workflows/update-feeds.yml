@@ -63,9 +63,11 @@ jobs:
           git diff --staged --quiet || (git commit -m "chore: update generated scrapers [skip ci]" && git push origin "HEAD:${GITHUB_REF_NAME}")
 
       - uses: actions/upload-pages-artifact@v3
+        if: always() && hashFiles('public/*.xml') != ''
         with:
           path: public/
 
       - name: Deploy to GitHub Pages
         id: deployment
+        if: always() && hashFiles('public/*.xml') != ''
         uses: actions/deploy-pages@v4
