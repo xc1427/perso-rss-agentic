@@ -23,9 +23,11 @@ src/
       .gitkeep
   render/
     rss.ts                        # RSS XML renderer
+    index-html.ts                 # public/index.html renderer (directory of feeds)
 
 test/
   rss.test.ts
+  index-html.test.ts
 
 .github/workflows/
   update-feeds.yml                # Scheduled pipeline + GitHub Pages deployment
@@ -127,9 +129,12 @@ sources/*.yml
   → fetchFeed(config) → FeedItem[]
   → validateItems
   → renderRss → public/{slug}.xml
+  → after all sources: renderIndexHtml(succeeded) → public/index.html
   → GitHub Actions uploads public/ as Pages artifact
-  → GitHub Pages serves the XML files
+  → GitHub Pages serves the XML files and the index
 ```
+
+The index page lists only sources whose feed was generated successfully on this run, so it never links to a missing `.xml`. If every source fails, no index is written.
 
 ## CI/Deployment
 

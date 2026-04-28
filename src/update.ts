@@ -1,6 +1,7 @@
 import { writeFileSync, mkdirSync, readdirSync, readFileSync, existsSync, rmSync } from "node:fs"
 import { parse as parseYaml } from "yaml"
 import { renderRss } from "./render/rss.js"
+import { renderIndexHtml } from "./render/index-html.js"
 import type { FeedConfig, FeedItem } from "./types.js"
 
 const PAGES_BASE = "https://xc1427.github.io/perso-rss-agentic"
@@ -111,6 +112,7 @@ const results = await Promise.allSettled(
     try {
       await updateFeed(config)
       console.log(`✓ ${config.slug}`)
+      return config
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`✗ ${config.slug}: ${msg}`)
@@ -118,6 +120,14 @@ const results = await Promise.allSettled(
     }
   })
 )
+
+const succeeded = results
+  .filter((r): r is PromiseFulfilledResult<FeedConfig> => r.status === "fulfilled")
+  .map((r) => r.value)
+
+if (succeeded.length > 0) {
+  writeFeed("public/index.html", renderIndexHtml(succeeded))
+}
 
 const failed = results.filter((r) => r.status === "rejected").length
 if (failed > 0) {
