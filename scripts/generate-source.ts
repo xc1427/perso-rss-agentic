@@ -8,7 +8,11 @@ import type { FeedConfig, FeedItem } from "../src/types.js"
 
 const MAX_TURNS = 15
 const GENERATED_DIR = "src/sources/generated"
-const USER_AGENT = "Mozilla/5.0 (compatible; rss-bot/1.0)"
+// Cloudflare and similar WAFs block User-Agents containing "bot". Use a real
+// browser UA so inspection requests aren't rejected before the agent can see
+// the page structure.
+const USER_AGENT =
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 const FETCH_TIMEOUT_MS = 30_000
 const RUN_CODE_TIMEOUT_MS = 30_000
 
@@ -277,6 +281,14 @@ NOT available (do not import these — you will get "Cannot find module"):
 Tips for JS-rendered / Next.js pages (common for blog listing pages):
 - Inspect the fetch_html body for \`<script id="__NEXT_DATA__" type="application/json">{...}</script>\`. The JSON inside often contains the listing items in \`props.pageProps\` — parsing it is faster and more stable than DOM scraping.
 - If no JSON island is present and the listing is empty in the raw HTML, fall back to fetch_with_browser, then parse the rendered DOM with cheerio.
+
+Anti-bot blocks (HTTP 403, "Just a moment...", "Attention Required! | Cloudflare"):
+- If fetch_html returns 403 or a Cloudflare challenge page, fetch_html cannot reach this site. Do NOT keep retrying fetch_html with different paths — the WAF will keep blocking it. Switch immediately to fetch_with_browser, which uses headless Chromium and typically clears the challenge.
+- If fetch_with_browser also returns blocked content, your scraper still has to work in production. The production scraper uses Node's default \`fetch\` (no custom User-Agent), which often passes when fetch_html does not. Generate the scraper based on whatever signal you can extract (best-effort selectors from a partially loaded page, an exposed JSON endpoint, or a sitemap) and let write_scraper validate it against the real fetch path.
+
+Empty-listing fallbacks:
+- If your selector matches the structure but yields 0 items inside the listing container, your selector is probably looking inside the wrong wrapper. Re-inspect the HTML and try a sibling/parent selector. Do NOT broaden the selector to the whole page — the scraper must return items belonging to *this* config.url, not unrelated posts.
+- The scraper must return at least one item or validation will fail and the file will be deleted.
 
 Reading run_code output:
 - Format: \`[exit X (ok|failure)] --- stderr --- … --- stdout --- …\`. Each stream is tail-trimmed (last 5 KB shown).
