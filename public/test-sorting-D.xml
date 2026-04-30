@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>RSS Sort Test — Variant D (distinct pubDates, XML order oldest→newest)</title>
+    <link>https://xc1427.github.io/perso-rss-agentic/</link>
+    <description>Each item has a distinct pubDate. XML order is REVERSED: D1 (oldest) first, D5 (newest) last. If reader sorts by pubDate, D5 should still appear at the top.</description>
+    <atom:link href="https://xc1427.github.io/perso-rss-agentic/test-sorting-D.xml" rel="self" type="application/rss+xml"/>
+    <lastBuildDate>Tue, 28 Apr 2026 14:00:00 GMT</lastBuildDate>
+    <item>
+      <title>Variant D — Item 1 (oldest)</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-D-item-1</link>
+      <guid isPermaLink="false">test-sorting-D-1</guid>
+      <pubDate>Tue, 28 Apr 2026 10:00:00 GMT</pubDate>
+      <description>Variant D, item 1. Oldest pubDate, listed first in XML. Should still appear at the bottom if pubDate dominates.</description>
+    </item>
+    <item>
+      <title>Variant D — Item 2</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-D-item-2</link>
+      <guid isPermaLink="false">test-sorting-D-2</guid>
+      <pubDate>Tue, 28 Apr 2026 11:00:00 GMT</pubDate>
+      <description>Variant D, item 2.</description>
+    </item>
+    <item>
+      <title>Variant D — Item 3</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-D-item-3</link>
+      <guid isPermaLink="false">test-sorting-D-3</guid>
+      <pubDate>Tue, 28 Apr 2026 12:00:00 GMT</pubDate>
+      <description>Variant D, item 3.</description>
+    </item>
+    <item>
+      <title>Variant D — Item 4</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-D-item-4</link>
+      <guid isPermaLink="false">test-sorting-D-4</guid>
+      <pubDate>Tue, 28 Apr 2026 13:00:00 GMT</pubDate>
+      <description>Variant D, item 4.</description>
+    </item>
+    <item>
+      <title>Variant D — Item 5 (newest)</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-D-item-5</link>
+      <guid isPermaLink="false">test-sorting-D-5</guid>
+      <pubDate>Tue, 28 Apr 2026 14:00:00 GMT</pubDate>
+      <description>Variant D, item 5. Newest pubDate, listed last in XML. Should appear at the top if pubDate dominates.</description>
+    </item>
+  </channel>
+</rss>

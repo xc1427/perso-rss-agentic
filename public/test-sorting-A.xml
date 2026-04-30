@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>RSS Sort Test — Variant A (same pubDate, XML order 1→5)</title>
+    <link>https://xc1427.github.io/perso-rss-agentic/</link>
+    <description>All 5 items share the same pubDate. XML order is A1, A2, A3, A4, A5.</description>
+    <atom:link href="https://xc1427.github.io/perso-rss-agentic/test-sorting-A.xml" rel="self" type="application/rss+xml"/>
+    <lastBuildDate>Tue, 28 Apr 2026 10:00:00 GMT</lastBuildDate>
+    <item>
+      <title>Variant A — Item 1</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-A-item-1</link>
+      <guid isPermaLink="false">test-sorting-A-1</guid>
+      <pubDate>Tue, 28 Apr 2026 10:00:00 GMT</pubDate>
+      <description>Variant A, item 1. All five A-items share pubDate Tue, 28 Apr 2026 10:00:00 GMT. XML order is 1,2,3,4,5.</description>
+    </item>
+    <item>
+      <title>Variant A — Item 2</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-A-item-2</link>
+      <guid isPermaLink="false">test-sorting-A-2</guid>
+      <pubDate>Tue, 28 Apr 2026 10:00:00 GMT</pubDate>
+      <description>Variant A, item 2.</description>
+    </item>
+    <item>
+      <title>Variant A — Item 3</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-A-item-3</link>
+      <guid isPermaLink="false">test-sorting-A-3</guid>
+      <pubDate>Tue, 28 Apr 2026 10:00:00 GMT</pubDate>
+      <description>Variant A, item 3.</description>
+    </item>
+    <item>
+      <title>Variant A — Item 4</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-A-item-4</link>
+      <guid isPermaLink="false">test-sorting-A-4</guid>
+      <pubDate>Tue, 28 Apr 2026 10:00:00 GMT</pubDate>
+      <description>Variant A, item 4.</description>
+    </item>
+    <item>
+      <title>Variant A — Item 5</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-A-item-5</link>
+      <guid isPermaLink="false">test-sorting-A-5</guid>
+      <pubDate>Tue, 28 Apr 2026 10:00:00 GMT</pubDate>
+      <description>Variant A, item 5.</description>
+    </item>
+  </channel>
+</rss>

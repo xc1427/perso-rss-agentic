@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>RSS Sort Test — Variant C (distinct pubDates, XML order newest→oldest)</title>
+    <link>https://xc1427.github.io/perso-rss-agentic/</link>
+    <description>Each item has a distinct pubDate. XML order matches reverse-chronological: C5 (newest) first, C1 (oldest) last. Sanity check.</description>
+    <atom:link href="https://xc1427.github.io/perso-rss-agentic/test-sorting-C.xml" rel="self" type="application/rss+xml"/>
+    <lastBuildDate>Tue, 28 Apr 2026 14:00:00 GMT</lastBuildDate>
+    <item>
+      <title>Variant C — Item 5 (newest)</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-C-item-5</link>
+      <guid isPermaLink="false">test-sorting-C-5</guid>
+      <pubDate>Tue, 28 Apr 2026 14:00:00 GMT</pubDate>
+      <description>Variant C, item 5. Newest pubDate. Should appear at the top.</description>
+    </item>
+    <item>
+      <title>Variant C — Item 4</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-C-item-4</link>
+      <guid isPermaLink="false">test-sorting-C-4</guid>
+      <pubDate>Tue, 28 Apr 2026 13:00:00 GMT</pubDate>
+      <description>Variant C, item 4.</description>
+    </item>
+    <item>
+      <title>Variant C — Item 3</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-C-item-3</link>
+      <guid isPermaLink="false">test-sorting-C-3</guid>
+      <pubDate>Tue, 28 Apr 2026 12:00:00 GMT</pubDate>
+      <description>Variant C, item 3.</description>
+    </item>
+    <item>
+      <title>Variant C — Item 2</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-C-item-2</link>
+      <guid isPermaLink="false">test-sorting-C-2</guid>
+      <pubDate>Tue, 28 Apr 2026 11:00:00 GMT</pubDate>
+      <description>Variant C, item 2.</description>
+    </item>
+    <item>
+      <title>Variant C — Item 1 (oldest)</title>
+      <link>https://xc1427.github.io/perso-rss-agentic/#variant-C-item-1</link>
+      <guid isPermaLink="false">test-sorting-C-1</guid>
+      <pubDate>Tue, 28 Apr 2026 10:00:00 GMT</pubDate>
+      <description>Variant C, item 1. Oldest pubDate. Should appear at the bottom.</description>
+    </item>
+  </channel>
+</rss>

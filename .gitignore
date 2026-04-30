@@ -1,5 +1,6 @@
 node_modules/
 dist/
 package-lock.json
-public/
+public/*
+!public/test-sorting-*.xml
 logs/
