@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { writeFileSync, appendFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import type { FeedConfig, FeedItem } from "../src/types.js"
@@ -124,7 +123,12 @@ async function executeTool(
 
     case "run_code": {
       const code = input.code as string
-      const tmpDir = mkdtempSync(join(tmpdir(), `${slug}-`))
+      // Write candidate inside the project tree so Node resolves bare imports
+      // (e.g. "cheerio") against the project's node_modules. /tmp would walk
+      // up from a directory with no node_modules and fail with MODULE_NOT_FOUND.
+      const tmpRoot = resolve(process.cwd(), "node_modules/.cache/scraper-candidates")
+      mkdirSync(tmpRoot, { recursive: true })
+      const tmpDir = mkdtempSync(join(tmpRoot, `${slug}-`))
       const tmpFile = join(tmpDir, "candidate.ts")
       writeFileSync(tmpFile, code, "utf-8")
       const result = spawnSync("npx", ["tsx", tmpFile], {
