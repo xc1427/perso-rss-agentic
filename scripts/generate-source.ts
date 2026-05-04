@@ -279,6 +279,16 @@ Your scraper must:
      available, resolve it against \`config.url\` with \`new URL(rel, config.url).href\`.
      Do **not** fetch each detail page just to grab og:image — keep this scraper
      to a single listing-page request. If no image is available, omit the field.
+   - \`summary\` (optional, **plain text only**): a real human-readable excerpt or
+     description of the item. Never use metadata labels such as category names as
+     the summary — they are not informative. If the listing page provides no
+     per-item excerpt, omit this field entirely.
+   - \`contentHtml\` (optional, **HTML only — never raw Markdown**): rich item body.
+     If the source content is in Markdown format, convert it to HTML before storing:
+     group consecutive "- item" lines into \`<ul><li>item</li></ul>\`, convert
+     \`**text**\` → \`<strong>text</strong>\`, backtick spans → \`<code>code</code>\`,
+     \`## heading\` → \`<h2>heading</h2>\`. Raw Markdown in contentHtml will render
+     as broken plain text in RSS readers.
 
 Type definitions to use (copy these into your module):
 \`\`\`typescript
