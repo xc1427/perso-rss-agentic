@@ -1,4 +1,5 @@
 import { writeFileSync, mkdirSync, readdirSync, readFileSync, existsSync, rmSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { parse as parseYaml } from "yaml"
 import { renderRss } from "./render/rss.js"
 import { renderIndexHtml } from "./render/index-html.js"
@@ -6,22 +7,53 @@ import type { FeedConfig, FeedItem } from "./types.js"
 
 const PAGES_BASE = "https://xc1427.github.io/perso-rss-agentic"
 const SOURCES_DIR = "sources"
+const GENERATED_DIR = "src/sources/generated"
+// Header line written at the top of every generated scraper. The hash binds
+// the file to the source-config snapshot it was generated from; if the YAML
+// changes, the hash mismatches and the cached file is discarded.
+const SOURCE_HASH_HEADER_RE = /^\/\/ SOURCE_HASH: ([a-f0-9]+)\b/
 
 interface SourceYaml {
   slug: string
   feedTitle: string
   feedDescription: string
   url: string
+  // Free-form per-source guidance injected into the scraper-generator prompt.
+  // Not visible to the runtime scraper — purely a generation-time escape hatch.
+  agentHints?: string
 }
+
+type LoadedSource = { config: FeedConfig; agentHints?: string; sourceHash: string }
 
 type ScraperModule = { fetchFeed: (config: FeedConfig) => Promise<FeedItem[]> }
 
-function loadConfigs(): FeedConfig[] {
+function computeSourceHash(yml: SourceYaml): string {
+  // Only the fields that influence generation belong in the hash. Derived
+  // fields (feedUrl, outputXml) are intentionally excluded — their values are
+  // a pure function of slug, so they add nothing.
+  const canonical = JSON.stringify({
+    slug: yml.slug,
+    feedTitle: yml.feedTitle,
+    feedDescription: yml.feedDescription,
+    url: yml.url,
+    agentHints: yml.agentHints ?? null,
+  })
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 16)
+}
+
+function readCachedSourceHash(slug: string): string | null {
+  const filePath = `${GENERATED_DIR}/${slug}.ts`
+  if (!existsSync(filePath)) return null
+  const firstLine = readFileSync(filePath, "utf-8").split("\n", 1)[0] ?? ""
+  return firstLine.match(SOURCE_HASH_HEADER_RE)?.[1] ?? null
+}
+
+function loadConfigs(): LoadedSource[] {
   const files = readdirSync(SOURCES_DIR).filter((f) => f.endsWith(".yml"))
   return files.map((file) => {
     const raw = readFileSync(`${SOURCES_DIR}/${file}`, "utf-8")
     const yml = parseYaml(raw) as SourceYaml
-    return {
+    const config: FeedConfig = {
       slug: yml.slug,
       feedTitle: yml.feedTitle,
       feedDescription: yml.feedDescription,
@@ -29,10 +61,35 @@ function loadConfigs(): FeedConfig[] {
       feedUrl: `${PAGES_BASE}/${yml.slug}.xml`,
       outputXml: `public/${yml.slug}.xml`,
     }
+    const sourceHash = computeSourceHash(yml)
+    return yml.agentHints
+      ? { config, agentHints: yml.agentHints, sourceHash }
+      : { config, sourceHash }
   })
 }
 
-async function loadScraper(slug: string, config: FeedConfig): Promise<ScraperModule> {
+async function loadScraper(
+  slug: string,
+  config: FeedConfig,
+  agentHints: string | undefined,
+  sourceHash: string
+): Promise<ScraperModule> {
+  // Cache invalidation: if the cached scraper's header hash doesn't match the
+  // current source config, drop it before the import attempt. A missing
+  // header (legacy scraper) is treated as a mismatch — we don't know what it
+  // was generated from, so we regenerate to bind it to the current config.
+  const cachedHash = readCachedSourceHash(slug)
+  if (cachedHash !== sourceHash) {
+    const generatedPath = `${GENERATED_DIR}/${slug}.ts`
+    if (existsSync(generatedPath)) {
+      const reason = cachedHash
+        ? `source config changed (cached=${cachedHash}, current=${sourceHash})`
+        : `cached scraper has no SOURCE_HASH header — regenerating to bind it to the current config`
+      console.log(`  Invalidating cached scraper for ${slug}: ${reason}`)
+      rmSync(generatedPath)
+    }
+  }
+
   // Try cached generated scraper
   try {
     return await import(`./sources/generated/${slug}.js`) as ScraperModule
@@ -49,7 +106,7 @@ async function loadScraper(slug: string, config: FeedConfig): Promise<ScraperMod
   // Auto-generate via Anthropic agent
   console.log(`  No scraper found for ${slug} — generating via agent...`)
   const { generateScraper } = await import("../scripts/generate-source.js")
-  await generateScraper(slug, config)
+  await generateScraper(slug, config, agentHints, sourceHash)
   return await import(`./sources/generated/${slug}.js`) as ScraperModule
 }
 
@@ -84,8 +141,9 @@ function writeFeed(filePath: string, content: string): void {
   console.log(`  written: ${filePath}`)
 }
 
-async function updateFeed(config: FeedConfig): Promise<void> {
-  const scraper = await loadScraper(config.slug, config)
+async function updateFeed(loaded: LoadedSource): Promise<void> {
+  const { config, agentHints, sourceHash } = loaded
+  const scraper = await loadScraper(config.slug, config, agentHints, sourceHash)
 
   let items: FeedItem[]
   try {
@@ -105,17 +163,17 @@ async function updateFeed(config: FeedConfig): Promise<void> {
   writeFeed(config.outputXml, renderRss(items, config))
 }
 
-const configs = loadConfigs()
+const sources = loadConfigs()
 
 const results = await Promise.allSettled(
-  configs.map(async (config) => {
+  sources.map(async (loaded) => {
     try {
-      await updateFeed(config)
-      console.log(`✓ ${config.slug}`)
-      return config
+      await updateFeed(loaded)
+      console.log(`✓ ${loaded.config.slug}`)
+      return loaded.config
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`✗ ${config.slug}: ${msg}`)
+      console.error(`✗ ${loaded.config.slug}: ${msg}`)
       throw err
     }
   })

@@ -42,9 +42,21 @@ slug: claude-blog-cat-claude-code
 feedTitle: "Claude Blog (category: claude-code)"
 feedDescription: Latest posts in the Claude blog "claude-code" category
 url: https://claude.com/blog/category/claude-code
+# Optional — see "Per-Source Escape Hatch" below
+agentHints: |
+  Always fetch each detail page in parallel — the listing cards only contain
+  placeholder illustrations.
+  - imageUrl: use the first `<meta property="og:image">` on the detail page.
+  - summary: first ~200 words from `.post-body` plain text.
 ```
 
 `feedUrl` (`https://xc1427.github.io/perso-rss-agentic/{slug}.xml`) and `outputXml` (`public/{slug}.xml`) are computed at runtime from `slug`. `url` is both the fetch target and the RSS `<link>` value; for sources like the changelog it points to the raw content URL.
+
+### Per-Source Escape Hatch: `agentHints`
+
+`agentHints` is an optional free-form block of guidance injected into the scraper-generator prompt for that one source. Use it when a source needs guardrails or preferences that don't belong in the global prompt: site-specific selectors that aren't obvious, fallback strategies, or fields the listing page hides that must be pulled from the detail page.
+
+`agentHints` is **generation-time only**: it never reaches the runtime scraper or the rendered RSS XML. It refines, but does not override, the validation requirements enforced by the global prompt and `update.ts`.
 
 ## Core Types
 
@@ -82,14 +94,25 @@ export async function fetchFeed(config: FeedConfig): Promise<FeedItem[]>
 
 ## Scraper Loading
 
-For each source `slug`, `update.ts` tries in order:
+For each source, `update.ts` does the following before invoking the scraper:
 
-1. `src/sources/generated/{slug}.ts` — previously generated (cached in git)
-2. `scripts/generate-source.ts → generateScraper(slug, config)` — agent generates and writes to `src/sources/generated/{slug}.ts`, then imports it
+1. Compute a sha256 of the source-config-relevant YAML fields (`slug`, `feedTitle`, `feedDescription`, `url`, `agentHints`); take the first 16 hex chars as the **source hash**.
+2. If `src/sources/generated/{slug}.ts` exists and its first line matches `// SOURCE_HASH: <hash>`, import it and use it.
+3. Otherwise — file missing, header missing, or hash mismatched — delete any stale file and call `scripts/generate-source.ts → generateScraper(slug, config, agentHints, sourceHash)`. The agent writes a fresh scraper carrying the current hash; `update.ts` then imports it.
 
-## Hand-Written Scrapers
+## Generated Scrapers Are Not Source Code
 
-Hand-written scrapers are not part of the current design. All scrapers are agent-generated to keep the loading path simple and uniform. A hand-written scraper layer may be introduced later as an escape hatch for cases where the generated scraper is persistently flawed and manual intervention is needed.
+Files under `src/sources/generated/` are agent output, bound to a specific source-config snapshot via the `// SOURCE_HASH:` header. They are not source code and must not be hand-edited:
+
+- Manual edits will be silently overwritten the next time the file is regenerated (validation failure, source-hash drift, or deliberate prompt change).
+- Hand-edits also obscure which behaviors the generator can reliably produce, making the prompt harder to evolve.
+
+To change scraper behavior, edit one of the inputs the generator reads:
+
+- The **global generator prompt** in `scripts/generate-source.ts` for changes that should apply to every source.
+- The **per-source `agentHints`** in `sources/{slug}.yml` for site-specific guardrails or preferences. This is the supported per-source escape hatch — see "Source Configuration" above.
+
+A hand-written scraper layer may still be introduced later for cases where neither lever can produce a working scraper, but it is not part of the current design.
 
 ## Output Validation
 
@@ -103,9 +126,15 @@ After `fetchFeed` returns, `update.ts` enforces:
 
 Validation failure is treated as a hard error (same as a thrown exception). The agent runs the same validation in-process immediately after `write_scraper` and reports failures back to itself for iteration.
 
-## Auto-Invalidation of Generated Scrapers
+## Cache Invalidation
 
-If `fetchFeed` throws or validation fails, `update.ts` deletes `src/sources/generated/{slug}.ts`. The CI step that commits generated scrapers runs with `if: always()`, so deletions are committed even when the pipeline fails — the scraper will be regenerated on the next run.
+A cached `src/sources/generated/{slug}.ts` is invalidated and regenerated in two cases:
+
+1. **Source-config drift.** Each generated scraper carries `// SOURCE_HASH: <hex>` as its first line — a sha256 of `{slug, feedTitle, feedDescription, url, agentHints}` at generation time. Before the import attempt, `update.ts` recomputes the hash from the current YAML and compares. On mismatch (or when the header is missing — e.g. a legacy scraper of unknown provenance), the cached file is deleted and regenerated under the current config. Editing any hashed YAML field — including `agentHints` — therefore triggers regeneration on the next run with no manual cleanup. Derived runtime fields (`feedUrl`, `outputXml`) are excluded from the hash because they are pure functions of `slug`.
+
+2. **Runtime failure.** If `fetchFeed` throws or output validation fails, `update.ts` deletes the cached scraper.
+
+The CI step that commits generated scrapers runs with `if: always()`, so deletions in either case are committed even when the pipeline fails — the scraper will be regenerated on the next run.
 
 > **Module cache caveat:** Node's ESM `import()` caches a successfully loaded module in-process. If a scraper is imported, then deleted from disk after a validation failure, the in-memory module remains live for the duration of that process run. This is safe because the process always exits (success or `process.exit(1)`) before any retry could occur. Do not introduce intra-process retry logic that re-imports the same slug — it would silently execute the stale cached module instead of the regenerated one.
 
@@ -118,7 +147,7 @@ Uses `@anthropic-ai/sdk` with `deepseek-v4-flash` (via DeepSeek's Anthropic-comp
 | `fetch_html` | HTTP GET with a 30 s timeout, returns `HTTP <status>\n<body>` capped at 80 KB; non-2xx is reported back as a tool failure |
 | `fetch_with_browser` | Headless Chromium via playwright (optional dep) reused across calls within one generation; `try/finally`-closes the page; falls back from `networkidle` to `domcontentloaded` so SPAs don't hang |
 | `run_code` | Executes TypeScript with `tsx` (30 s timeout). Returns a structured result: an exit-status label, then `stderr` (errors, tail-trimmed to 5 KB), then `stdout` (logs, tail-trimmed to 5 KB). Stderr-first because compile errors, module-not-found, and tracebacks land there |
-| `write_scraper` | Writes the candidate to `src/sources/generated/{slug}.ts`, then immediately imports it (cache-busted URL) and runs the same validation as `update.ts`. On success the loop returns. On failure the file is deleted and the validation error is fed back to the agent so it can iterate within the remaining turns. |
+| `write_scraper` | Prepends a `// SOURCE_HASH: <hex>` header (computed from the current source config — see "Cache Invalidation") and a "do not hand-edit" notice, writes the candidate to `src/sources/generated/{slug}.ts`, then immediately imports it (cache-busted URL) and runs the same validation as `update.ts`. On success the loop returns. On failure the file is deleted and the validation error is fed back to the agent so it can iterate within the remaining turns. |
 
 ## Data Flow
 
@@ -161,4 +190,6 @@ Required permissions: `contents: write`, `pages: write`, `id-token: write`.
 
 ## Adding a New Source
 
-Drop a YAML file in `sources/`. The pipeline auto-generates a scraper on the first run and commits it. No other changes required.
+Drop a YAML file in `sources/` with at minimum `slug`, `feedTitle`, `feedDescription`, and `url`. The pipeline auto-generates a scraper on the first run and commits it. No other changes required.
+
+If the global generator prompt isn't enough for the site (e.g. listing-page images are placeholders, or the post body lives behind an unusual selector), add `agentHints` to the YAML — the next run will see a hash mismatch, discard the cached scraper, and regenerate it under the new hints.
