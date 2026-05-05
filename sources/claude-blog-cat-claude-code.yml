@@ -2,3 +2,14 @@ slug: claude-blog-cat-claude-code
 feedTitle: "Claude Blog (claude-code)"
 feedDescription: Latest posts in the Claude blog "claude-code" category
 url: https://claude.com/blog/category/claude-code
+agentHints: |
+  Always fetch each post's detail page (in parallel via Promise.all) — the
+  Webflow listing cards only contain generic SVG illustrations, never real
+  per-post thumbnails or content. From each parsed detail page, extract:
+  - imageUrl: the FIRST `<meta property="og:image">` on the page. Skip any
+    later og:image tags — those are a generic Claude fallback
+    (`og_claude-generic.jpg`) and are not the per-post image.
+  - contentHtml: the full inner HTML of the post body container
+    `.u-rich-text-blog` (use cheerio's `.html()` on that element). Do not
+    truncate it. Do not fall back to a `summary` excerpt — the full body is
+    available, so always emit it as `contentHtml`.
