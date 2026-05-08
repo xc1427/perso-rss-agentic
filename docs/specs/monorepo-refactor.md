@@ -10,6 +10,7 @@
 | PR 4 | — | not started | Monorepo migration |
 | PR 5 | — | not started | Test infrastructure |
 | PR 6 | — | not started | First pre-production SPA source |
+| PR 7 | — | not started | Feed continuity: stale XML fallback on source failure |
 
 **Current branch:** `pr/2-cleanup` (push complete, PR open).
 **Next action:** merge PR 2, then start PR 3 from a fresh branch off main.
@@ -158,3 +159,35 @@ Depends on PRs 1, 4.
 ## Package name placeholder
 
 `@rss-agentic/core` / bin `rss-agentic` — rename at publish time (one `package.json` field + sed across imports).
+
+---
+
+## PR 7 — Feed Continuity: Stale XML Fallback on Source Failure
+
+Depends on all previous PRs.
+
+**Problem:** `public/` is never committed; each CI run starts empty. A failed source writes no XML → its feed goes offline until the next successful run.
+
+**Fix:** CI workflow only — no TypeScript changes.
+
+Add two cache steps around the pipeline run:
+
+```yaml
+- name: Restore previous XML feeds
+  uses: actions/cache/restore@v4
+  with:
+    path: <xml-output-dir>
+    key: xml-feeds-never-matches        # intentional miss — always falls through to restore-keys
+    restore-keys: xml-feeds-
+
+- run: <pipeline-command>               # overwrites restored files for passing sources only
+
+- name: Save XML feeds cache
+  if: always() && hashFiles('<xml-output-dir>/*.xml') != ''
+  uses: actions/cache/save@v4
+  with:
+    path: <xml-output-dir>
+    key: xml-feeds-${{ github.run_id }}
+```
+
+Result: passing sources get fresh XML (overwritten); failing sources retain the last cached XML. Cold cache (first ever run) behaves as today.
