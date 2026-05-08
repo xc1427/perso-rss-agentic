@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: update-feeds
+  group: update-feeds-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -63,11 +63,11 @@ jobs:
           git diff --staged --quiet || (git commit -m "chore: update generated scrapers [skip ci]" && git push origin "HEAD:${GITHUB_REF_NAME}")
 
       - uses: actions/upload-pages-artifact@v3
-        if: always() && hashFiles('public/*.xml') != ''
+        if: always() && hashFiles('public/*.xml') != '' && github.ref_name == 'main'
         with:
           path: public/
 
       - name: Deploy to GitHub Pages
         id: deployment
-        if: always() && hashFiles('public/*.xml') != ''
+        if: always() && hashFiles('public/*.xml') != '' && github.ref_name == 'main'
         uses: actions/deploy-pages@v4
