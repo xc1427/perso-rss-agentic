@@ -1,4 +1,5 @@
 import type { FeedConfig } from "../types.js"
+import { esc } from "./escape.js"
 
 export function renderIndexHtml(configs: FeedConfig[]): string {
   const items = configs
@@ -26,10 +27,3 @@ ${items}
 `
 }
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-}

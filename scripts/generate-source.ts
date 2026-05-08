@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process"
 import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import type { FeedConfig, FeedItem } from "../src/types.js"
+import { validateItems } from "../src/validate.js"
 
 const MAX_TURNS = 15
 const GENERATED_DIR = "src/sources/generated"
@@ -96,11 +97,9 @@ async function executeTool(
         if (!ctx.browser) {
           // Use a string variable so TypeScript doesn't statically resolve this optional dep
           const playwrightId: string = "playwright"
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const pw = (await import(playwrightId)) as any
           ctx.browser = await pw.chromium.launch()
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const browser = ctx.browser as any
         const page = await browser.newPage({ userAgent: USER_AGENT })
         try {
@@ -206,27 +205,7 @@ async function validateGeneratedScraper(filePath: string, slug: string, config: 
   }
   const items = (await mod.fetchFeed(config)) as FeedItem[]
   if (!Array.isArray(items)) throw new Error("fetchFeed did not return an array")
-  if (items.length < 1) throw new Error("fetchFeed returned 0 items")
-  for (const item of items) {
-    if (!item?.id?.trim?.()) throw new Error("item missing id")
-    if (!item?.title?.trim?.()) throw new Error("item missing title")
-    if (!item?.url?.trim?.()) throw new Error("item missing url")
-    if (!item?.publishedAt?.trim?.()) throw new Error("item missing publishedAt")
-    if (isNaN(new Date(item.publishedAt).getTime())) {
-      throw new Error(`invalid publishedAt: ${item.publishedAt}`)
-    }
-    if (item.source !== slug) {
-      throw new Error(`item.source must equal "${slug}", got "${item.source}"`)
-    }
-    if (item.imageUrl !== undefined) {
-      if (typeof item.imageUrl !== "string" || !item.imageUrl.trim()) {
-        throw new Error("imageUrl, when present, must be a non-empty string")
-      }
-      if (!/^https?:\/\//i.test(item.imageUrl)) {
-        throw new Error(`imageUrl must be an absolute http(s) URL: ${item.imageUrl}`)
-      }
-    }
-  }
+  validateItems(items, slug)
 }
 
 function truncateForLog(s: string): string {
@@ -444,7 +423,6 @@ Steps:
     throw err
   } finally {
     if (ctx.browser) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (ctx.browser as any).close().catch(() => undefined)
     }
   }
