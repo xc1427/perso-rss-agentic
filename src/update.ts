@@ -1,9 +1,11 @@
 import { writeFileSync, mkdirSync, readdirSync, readFileSync, existsSync, rmSync } from "node:fs"
+import { dirname } from "node:path"
 import { createHash } from "node:crypto"
 import { parse as parseYaml } from "yaml"
 import { renderRss } from "./render/rss.js"
 import { renderIndexHtml } from "./render/index-html.js"
 import type { FeedConfig, FeedItem } from "./types.js"
+import { validateItems } from "./validate.js"
 
 const PAGES_BASE = "https://xc1427.github.io/perso-rss-agentic"
 const SOURCES_DIR = "sources"
@@ -110,32 +112,8 @@ async function loadScraper(
   return await import(`./sources/generated/${slug}.js`) as ScraperModule
 }
 
-function validateItems(items: FeedItem[], slug: string): void {
-  if (items.length < 1) throw new Error(`${slug}: scraper returned no items`)
-  for (const item of items) {
-    if (!item.id?.trim()) throw new Error(`${slug}: item missing id`)
-    if (!item.title?.trim()) throw new Error(`${slug}: item missing title`)
-    if (!item.url?.trim()) throw new Error(`${slug}: item missing url`)
-    if (!item.publishedAt?.trim()) throw new Error(`${slug}: item missing publishedAt`)
-    if (isNaN(new Date(item.publishedAt).getTime())) {
-      throw new Error(`${slug}: invalid publishedAt: ${item.publishedAt}`)
-    }
-    if (item.source !== slug) {
-      throw new Error(`${slug}: item.source must equal "${slug}", got "${item.source}"`)
-    }
-    if (item.imageUrl !== undefined) {
-      if (typeof item.imageUrl !== "string" || !item.imageUrl.trim()) {
-        throw new Error(`${slug}: imageUrl, when present, must be a non-empty string`)
-      }
-      if (!/^https?:\/\//i.test(item.imageUrl)) {
-        throw new Error(`${slug}: imageUrl must be an absolute http(s) URL: ${item.imageUrl}`)
-      }
-    }
-  }
-}
-
 function writeFeed(filePath: string, content: string): void {
-  const dir = filePath.split("/").slice(0, -1).join("/")
+  const dir = dirname(filePath)
   if (dir) mkdirSync(dir, { recursive: true })
   writeFileSync(filePath, content, "utf-8")
   console.log(`  written: ${filePath}`)
@@ -150,7 +128,7 @@ async function updateFeed(loaded: LoadedSource): Promise<void> {
     items = await scraper.fetchFeed(config)
     validateItems(items, config.slug)
   } catch (err) {
-    const generatedPath = `src/sources/generated/${config.slug}.ts`
+    const generatedPath = `${GENERATED_DIR}/${config.slug}.ts`
     if (existsSync(generatedPath)) {
       // The in-process ESM module cache still holds this module after deletion.
       // Safe only because the process exits before any retry — never re-import the same slug in-process.

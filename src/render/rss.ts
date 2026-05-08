@@ -1,4 +1,5 @@
 import type { FeedConfig, FeedItem } from "../types.js"
+import { esc } from "./escape.js"
 
 const MAX_ITEMS = 50
 
@@ -40,14 +41,6 @@ function renderItem(item: FeedItem): string {
       <guid isPermaLink="false">${esc(item.id)}</guid>
       <pubDate>${toRfc822(new Date(item.publishedAt))}</pubDate>${enclosureLine}${descriptionLine}
     </item>`
-}
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
 }
 
 function guessImageMime(url: string): string {
