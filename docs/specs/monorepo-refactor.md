@@ -5,15 +5,15 @@
 | PR | Branch | Status | Notes |
 |----|--------|--------|-------|
 | PR 1 | `pr/1-branch-guard-deploy` | **MERGED** (932c7e4) | Branch-guard Pages deploy to main only; concurrency scoped by branch |
-| PR 2 | `pr/2-cleanup` | **OPEN** (#17) | In-place cleanup; tests pass, typecheck clean; awaiting merge |
-| PR 3 | — | not started | `helpers.fetchPage` / SPA fix |
+| PR 2 | `pr/2-cleanup` | **MERGED** (#17) | In-place cleanup; shared `esc()` and `validateItems()`; typecheck covers `scripts/` |
+| PR 3 | `pr/3-helpers-fetch-page` | **IN PROGRESS** | `helpers.fetchPage` SPA fix; `GENERATOR_FORMAT_VERSION="1"` mixed into source-hash; tests + typecheck clean |
 | PR 4 | — | not started | Monorepo migration |
 | PR 5 | — | not started | Test infrastructure |
 | PR 6 | — | not started | First pre-production SPA source |
 | PR 7 | — | not started | Feed continuity: stale XML fallback on source failure |
 
-**Current branch:** `pr/2-cleanup` (push complete, PR open).
-**Next action:** merge PR 2, then start PR 3 from a fresh branch off main.
+**Current branch:** `pr/3-helpers-fetch-page`.
+**Next action:** push branch, open PR, dispatch on branch to confirm the 3 existing scrapers regenerate with the new signature.
 
 ---
 
