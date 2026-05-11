@@ -52,7 +52,7 @@ export type ScraperHelpers = {
 
 **`scripts/generate-source.ts`**:
 - Bump `GENERATOR_FORMAT_VERSION` (new constant, e.g. `"1"`); include in source-hash input alongside YAML fields so all cached scrapers regenerate on next CI run
-- In `validateGeneratedScraper`: pass a `helpers` mock where `fetchPage` uses plain `fetch` (validation runs in-process, no browser needed)
+- `generateScraper` and `validateGeneratedScraper` both take a `helpers: ScraperHelpers` parameter; `update.ts` passes the production helpers in. Validation invokes the scraper with the **same** helpers the production runtime hands it (Playwright-backed `fetchPage`), eliminating the false negative where an SPA scraper that correctly uses `helpers.fetchPage` would fail validation against a plain-`fetch` mock. See `docs/specs/fix-validation-helpers-consistency.md` for the rationale.
 - Update prompt: explain `helpers.fetchPage`, when to use it (SPA pages, no `__NEXT_DATA__`), and that plain `fetch` is still preferred for non-SPA sources
 
 **`src/validate.ts`** — no change needed (validates items only, not the calling convention)

@@ -108,10 +108,12 @@ async function loadScraper(
     }
   }
 
-  // Auto-generate via Anthropic agent
+  // Auto-generate via Anthropic agent. The same `helpers` instance the
+  // runtime hands the scraper is also threaded into write_scraper validation,
+  // so a generation-time pass is a real production dry-run.
   console.log(`  No scraper found for ${slug} — generating via agent...`)
   const { generateScraper } = await import("../scripts/generate-source.js")
-  await generateScraper(slug, config, agentHints, sourceHash)
+  await generateScraper(slug, config, agentHints, sourceHash, helpers)
   return await import(`./sources/generated/${slug}.js`) as ScraperModule
 }
 
