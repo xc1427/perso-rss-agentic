@@ -3,7 +3,11 @@
 ## 背景
 
 本文档记录了一次代码审查中发现的设计缺陷，以及对应的修复方向。
-该修复应当在 PR 3（`helpers.fetchPage` SPA 修复）合并后，由重构 Agent 更新其计划时一并纳入考量。
+
+**当前状态（2026-05-11）：** PR 3（`pr/3-helpers-fetch-page`）已实现
+`helpers.fetchPage` 的大部分基础设施，但尚未解决本文描述的问题，
+且其 generator prompt 中显式将该问题作为已知限制加以绕过（见下文）。
+本修复应直接落地于 PR 3 的实现中，在 PR 3 合并前完成。
 
 ## 发现的问题
 
@@ -100,23 +104,45 @@ const items = (await mod.fetchFeed(config, helpers)) as FeedItem[]
 修复后，若一个爬虫通过了生成时验证，则可以保证它是在与生产环境
 **完全相同**的 `helpers` 实现下通过的，消除假阴性，反馈循环也将准确反映生产行为。
 
+## PR 3 已完成的部分
+
+PR 3（`pr/3-helpers-fetch-page`，commit `2c0b1c8`）已实现：
+
+- `src/types.ts`：导出 `ScraperHelpers` 类型
+- `src/update.ts`：构造带 Playwright 的 `helpers` 对象，传入 `scraper.fetchFeed(config, helpers)`，
+  共享 browser 实例，`finally` 中关闭
+- `scripts/generate-source.ts`：`GENERATOR_FORMAT_VERSION = "1"` 导出；
+  `validateGeneratedScraper` 签名更新为接受 `ScraperHelpers`；
+  generator prompt 中说明 `helpers.fetchPage` 的使用场景
+
+## PR 3 尚未解决的部分（本修复的目标）
+
+PR 3 的 `validateGeneratedScraper` 仍构造 plain `fetch` mock，
+并在 generator prompt 中将此作为已知限制向 agent 披露：
+
+> *"write_scraper validates it against an in-process `fetch`-backed mock of
+> `helpers.fetchPage`, so a scraper that needs a real browser may not validate
+> even when it would work in production; degrade gracefully if you must."*
+
+这是一个绕过方案，而非真正的修复。它要求 agent 围绕验证器的缺陷进行设计，
+而不是让验证器如实反映生产行为。
+
 ## 与现有重构计划的关系
 
-`docs/specs/monorepo-refactor.md` 中 **PR 3** 的当前描述如下：
+`docs/specs/monorepo-refactor.md` 中 **PR 3** 的 Changes 节描述如下：
 
 > In `validateGeneratedScraper`: pass a `helpers` mock where `fetchPage` uses
 > plain `fetch` (validation runs in-process, no browser needed)
 
-**此描述需要更新。** PR 3 合并后，重构 Agent 应将 PR 3 中关于
-`validateGeneratedScraper` 的计划修改为：接收并使用传入的生产 `helpers`，
-而非构造 plain `fetch` mock。
+**此描述需要更新为本修复的方案。**
 
 ## 给重构 Agent 的提示
 
-- 本修复与 PR 3（`helpers.fetchPage` SPA 修复）高度相关，建议在 PR 3
-  的实现阶段直接落地，而非单独开 PR。
-- PR 3 合并后，请检查 `monorepo-refactor.md` 中 PR 3 的描述并更新，
-  确保后续 PR（尤其是 PR 4 monorepo 迁移）的接口设计与本修复一致。
-- 在 monorepo 迁移（PR 4）后，`helpers` 的构造位置可能从
-  `update.ts` 移动到 `packages/core/src/pipeline.ts`，接口透传逻辑
-  需相应调整，但核心原则不变：验证与生产使用同一 `helpers` 实例。
+- **立即行动：** 在 PR 3 合并前，将本修复落地于 `pr/3-helpers-fetch-page` 分支，
+  具体改动见"接口变更"节。同时从 generator prompt 中删除上述已知限制的说明，
+  因为修复后该限制不再成立。
+- **合并后：** 更新 `monorepo-refactor.md` 中 PR 3 的 Changes 节，
+  将 `validateGeneratedScraper` 的描述改为"接收并使用传入的生产 `helpers`"。
+- **PR 4 monorepo 迁移后：** `helpers` 的构造位置将从 `update.ts`
+  移动到 `packages/core/src/pipeline.ts`，接口透传逻辑需相应调整，
+  但核心原则不变：验证与生产使用同一 `helpers` 实例。
