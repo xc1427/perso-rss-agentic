@@ -3,8 +3,13 @@ import { writeFileSync, appendFileSync, mkdirSync, mkdtempSync, rmSync } from "n
 import { spawnSync } from "node:child_process"
 import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
-import type { FeedConfig, FeedItem } from "../src/types.js"
+import type { FeedConfig, FeedItem, ScraperHelpers } from "../src/types.js"
 import { validateItems } from "../src/validate.js"
+
+// Bumped whenever the structural contract between generated scrapers and the
+// runtime changes (signature change, type rename, etc). Mixed into each
+// source-hash so a bump invalidates every cached scraper on the next run.
+export const GENERATOR_FORMAT_VERSION = "1"
 
 const MAX_TURNS = 15
 const GENERATED_DIR = "src/sources/generated"
@@ -199,11 +204,20 @@ function formatRunCodeOutput(result: ReturnType<typeof spawnSync>): string {
 async function validateGeneratedScraper(filePath: string, slug: string, config: FeedConfig): Promise<void> {
   // Cache-bust so re-imports of the same path during one process see the new file.
   const url = pathToFileURL(resolve(filePath)).href + `?t=${Date.now()}`
-  const mod = (await import(url)) as { fetchFeed?: (c: FeedConfig) => Promise<unknown> }
+  const mod = (await import(url)) as {
+    fetchFeed?: (c: FeedConfig, h: ScraperHelpers) => Promise<unknown>
+  }
   if (typeof mod.fetchFeed !== "function") {
     throw new Error(`module does not export fetchFeed`)
   }
-  const items = (await mod.fetchFeed(config)) as FeedItem[]
+  // Validation runs in-process — no browser. Scrapers that rely on
+  // helpers.fetchPage for SPA listings will see an empty/skeletal HTML body
+  // here; the agent should design the scraper to validate against this fetch
+  // path even if the live runtime path uses a real browser.
+  const helpers: ScraperHelpers = {
+    fetchPage: async (u: string) => (await fetch(u)).text(),
+  }
+  const items = (await mod.fetchFeed(config, helpers)) as FeedItem[]
   if (!Array.isArray(items)) throw new Error("fetchFeed did not return an array")
   validateItems(items, slug)
 }
@@ -251,6 +265,13 @@ type FeedConfig = {
   url: string
   feedUrl: string
   outputXml: string
+}
+
+type ScraperHelpers = {
+  // Renders the URL in a headless browser and returns the post-JS HTML.
+  // Use only for SPA pages whose listing is empty in the raw HTML; plain
+  // fetch is faster and preferred for SSR / Next.js / static pages.
+  fetchPage: (url: string) => Promise<string>
 }`
 
   const hintsSection = agentHints
@@ -267,8 +288,8 @@ Source configuration:
 ${JSON.stringify(config, null, 2)}
 ${hintsSection}
 Your scraper must:
-1. Export: \`export async function fetchFeed(config: FeedConfig): Promise<FeedItem[]>\`
-2. Fetch content from \`config.url\`
+1. Export: \`export async function fetchFeed(config: FeedConfig, helpers: ScraperHelpers): Promise<FeedItem[]>\`
+2. Fetch content from \`config.url\` — use plain global \`fetch\` for SSR / Next.js / static pages, or \`helpers.fetchPage(url)\` for SPA pages whose listing is empty in the raw HTML (no \`__NEXT_DATA__\` JSON island, content only appears after JS executes). \`helpers.fetchPage\` always renders the page in a headless browser, so prefer plain \`fetch\` whenever it works — the browser path is significantly slower
 3. Return an array of FeedItem objects where:
    - \`source\` is set to \`config.slug\` ("${slug}")
    - \`publishedAt\` is a valid ISO-8601 date string
@@ -315,7 +336,7 @@ Type definitions to use (copy these into your module):
 ${typeDefinitions}
 \`\`\`
 
-Import types from: \`import type { FeedConfig, FeedItem } from "../../types.js"\`
+Import types from: \`import type { FeedConfig, FeedItem, ScraperHelpers } from "../../types.js"\`
 
 Runtime available to your scraper and to run_code:
 - Node 20 with global \`fetch\` (no \`node-fetch\` needed)
@@ -328,11 +349,11 @@ NOT available (do not import these — you will get "Cannot find module"):
 
 Tips for JS-rendered / Next.js pages (common for blog listing pages):
 - Inspect the fetch_html body for \`<script id="__NEXT_DATA__" type="application/json">{...}</script>\`. The JSON inside often contains the listing items in \`props.pageProps\` — parsing it is faster and more stable than DOM scraping.
-- If no JSON island is present and the listing is empty in the raw HTML, fall back to fetch_with_browser, then parse the rendered DOM with cheerio.
+- If no JSON island is present and the listing is empty in the raw HTML, the page is an SPA. In your scraper, replace \`fetch(config.url)\` with \`helpers.fetchPage(config.url)\` — it returns the post-JS HTML which you can parse with cheerio exactly as you would the result of \`fetch\`.
 
 Anti-bot blocks (HTTP 403, "Just a moment...", "Attention Required! | Cloudflare"):
 - If fetch_html returns 403 or a Cloudflare challenge page, fetch_html cannot reach this site. Do NOT keep retrying fetch_html with different paths — the WAF will keep blocking it. Switch immediately to fetch_with_browser, which uses headless Chromium and typically clears the challenge.
-- If fetch_with_browser also returns blocked content, your scraper still has to work in production. The production scraper uses Node's default \`fetch\` (no custom User-Agent), which often passes when fetch_html does not. Generate the scraper based on whatever signal you can extract (best-effort selectors from a partially loaded page, an exposed JSON endpoint, or a sitemap) and let write_scraper validate it against the real fetch path.
+- If fetch_with_browser also returns blocked content, your scraper still has to work in production. Try both paths in run_code: plain \`fetch\` (Node's default UA often passes where fetch_html does not), and \`helpers.fetchPage\` (full headless browser, mirrors fetch_with_browser). Generate the scraper using whichever path actually succeeds — write_scraper validates it against an in-process \`fetch\`-backed mock of \`helpers.fetchPage\`, so a scraper that needs a real browser may not validate even when it would work in production; degrade gracefully if you must.
 
 Empty-listing fallbacks:
 - If your selector matches the structure but yields 0 items inside the listing container, your selector is probably looking inside the wrong wrapper. Re-inspect the HTML and try a sibling/parent selector. Do NOT broaden the selector to the whole page — the scraper must return items belonging to *this* config.url, not unrelated posts.

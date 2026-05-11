@@ -4,8 +4,9 @@ import { createHash } from "node:crypto"
 import { parse as parseYaml } from "yaml"
 import { renderRss } from "./render/rss.js"
 import { renderIndexHtml } from "./render/index-html.js"
-import type { FeedConfig, FeedItem } from "./types.js"
+import type { FeedConfig, FeedItem, ScraperHelpers } from "./types.js"
 import { validateItems } from "./validate.js"
+import { GENERATOR_FORMAT_VERSION } from "../scripts/generate-source.js"
 
 const PAGES_BASE = "https://xc1427.github.io/perso-rss-agentic"
 const SOURCES_DIR = "sources"
@@ -27,13 +28,15 @@ interface SourceYaml {
 
 type LoadedSource = { config: FeedConfig; agentHints?: string; sourceHash: string }
 
-type ScraperModule = { fetchFeed: (config: FeedConfig) => Promise<FeedItem[]> }
+type ScraperModule = { fetchFeed: (config: FeedConfig, helpers: ScraperHelpers) => Promise<FeedItem[]> }
 
 function computeSourceHash(yml: SourceYaml): string {
   // Only the fields that influence generation belong in the hash. Derived
   // fields (feedUrl, outputXml) are intentionally excluded — their values are
-  // a pure function of slug, so they add nothing.
+  // a pure function of slug, so they add nothing. The format version is mixed
+  // in so structural contract bumps invalidate every cached scraper at once.
   const canonical = JSON.stringify({
+    formatVersion: GENERATOR_FORMAT_VERSION,
     slug: yml.slug,
     feedTitle: yml.feedTitle,
     feedDescription: yml.feedDescription,
@@ -119,13 +122,46 @@ function writeFeed(filePath: string, content: string): void {
   console.log(`  written: ${filePath}`)
 }
 
+// One Playwright browser shared across all sources for the duration of the
+// run. Lazily provisioned on the first `helpers.fetchPage` call so SSR-only
+// runs don't pay the launch cost. Closed in the top-level finally below.
+let browserInstance: unknown | null = null
+
+async function getBrowser(): Promise<any> {
+  if (browserInstance) return browserInstance
+  // Use a string variable so TypeScript doesn't statically resolve this optional dep.
+  const playwrightId: string = "playwright"
+  const pw = (await import(playwrightId)) as any
+  browserInstance = await pw.chromium.launch()
+  return browserInstance
+}
+
+async function fetchPage(url: string): Promise<string> {
+  const browser = await getBrowser()
+  const page = await browser.newPage()
+  try {
+    await page.goto(url, { timeout: 30_000 })
+    // Same load-state strategy as fetch_with_browser: prefer networkidle but
+    // don't hang on long-poll sites — fall back to domcontentloaded.
+    await page
+      .waitForLoadState("networkidle", { timeout: 10_000 })
+      .catch(() => page.waitForLoadState("domcontentloaded", { timeout: 5_000 }))
+      .catch(() => undefined)
+    return (await page.content()) as string
+  } finally {
+    await page.close().catch(() => undefined)
+  }
+}
+
+const helpers: ScraperHelpers = { fetchPage }
+
 async function updateFeed(loaded: LoadedSource): Promise<void> {
   const { config, agentHints, sourceHash } = loaded
   const scraper = await loadScraper(config.slug, config, agentHints, sourceHash)
 
   let items: FeedItem[]
   try {
-    items = await scraper.fetchFeed(config)
+    items = await scraper.fetchFeed(config, helpers)
     validateItems(items, config.slug)
   } catch (err) {
     const generatedPath = `${GENERATED_DIR}/${config.slug}.ts`
@@ -143,19 +179,26 @@ async function updateFeed(loaded: LoadedSource): Promise<void> {
 
 const sources = loadConfigs()
 
-const results = await Promise.allSettled(
-  sources.map(async (loaded) => {
-    try {
-      await updateFeed(loaded)
-      console.log(`✓ ${loaded.config.slug}`)
-      return loaded.config
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error(`✗ ${loaded.config.slug}: ${msg}`)
-      throw err
-    }
-  })
-)
+let results: PromiseSettledResult<FeedConfig>[]
+try {
+  results = await Promise.allSettled(
+    sources.map(async (loaded) => {
+      try {
+        await updateFeed(loaded)
+        console.log(`✓ ${loaded.config.slug}`)
+        return loaded.config
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`✗ ${loaded.config.slug}: ${msg}`)
+        throw err
+      }
+    })
+  )
+} finally {
+  if (browserInstance) {
+    await (browserInstance as any).close().catch(() => undefined)
+  }
+}
 
 const succeeded = results
   .filter((r): r is PromiseFulfilledResult<FeedConfig> => r.status === "fulfilled")
