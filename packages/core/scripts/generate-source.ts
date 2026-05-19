@@ -6,13 +6,10 @@ import { pathToFileURL } from "node:url"
 import type { FeedConfig, FeedItem, ScraperHelpers } from "../src/types.js"
 import { validateItems } from "../src/validate.js"
 
-// Bumped whenever the structural contract between generated scrapers and the
-// runtime changes (signature change, type rename, etc). Mixed into each
-// source-hash so a bump invalidates every cached scraper on the next run.
-export const GENERATOR_FORMAT_VERSION = "1"
+// GENERATOR_FORMAT_VERSION lives in loader.ts now — bump it there to invalidate
+// every cached scraper on the next run.
 
 const MAX_TURNS = 15
-const GENERATED_DIR = "src/sources/generated"
 const LOGS_DIR = "logs"
 // Larger than every per-tool cap (run_code: 10 KB combined; fetch_*: 80 KB) so the
 // transcript on disk is never less than what the agent itself received.
@@ -26,7 +23,12 @@ const FETCH_TIMEOUT_MS = 30_000
 const RUN_CODE_TIMEOUT_MS = 30_000
 
 type ToolResult = { output: string; success: boolean }
-type ToolCtx = { browser: unknown | null; sourceHash: string; helpers: ScraperHelpers }
+type ToolCtx = {
+  browser: unknown | null
+  sourceHash: string
+  helpers: ScraperHelpers
+  generatedDir: string
+}
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -148,8 +150,8 @@ async function executeTool(
 
     case "write_scraper": {
       const code = input.code as string
-      mkdirSync(GENERATED_DIR, { recursive: true })
-      const filePath = `${GENERATED_DIR}/${slug}.ts`
+      mkdirSync(ctx.generatedDir, { recursive: true })
+      const filePath = `${ctx.generatedDir}/${slug}.ts`
       // Bind this generated file to the source-config snapshot it was made from.
       // update.ts compares this hash against the current config on every run and
       // discards the file if they diverge.
@@ -241,10 +243,11 @@ export async function generateScraper(
   config: FeedConfig,
   agentHints: string | undefined,
   sourceHash: string,
-  helpers: ScraperHelpers
+  helpers: ScraperHelpers,
+  generatedDir: string
 ): Promise<void> {
   const client = new Anthropic()
-  const ctx: ToolCtx = { browser: null, sourceHash, helpers }
+  const ctx: ToolCtx = { browser: null, sourceHash, helpers, generatedDir }
   const log = openTranscript(slug)
 
   const typeDefinitions = `type FeedSource = string
@@ -338,7 +341,7 @@ Type definitions to use (copy these into your module):
 ${typeDefinitions}
 \`\`\`
 
-Import types from: \`import type { FeedConfig, FeedItem, ScraperHelpers } from "../../types.js"\`
+Import types from: \`import type { FeedConfig, FeedItem, ScraperHelpers } from "@rss-agentic/core"\`
 
 Runtime available to your scraper and to run_code:
 - Node 20 with global \`fetch\` (no \`node-fetch\` needed)

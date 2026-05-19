@@ -12,4 +12,4 @@ Each source's XML is served at `https://xc1427.github.io/perso-rss-agentic/{slug
 
 ## Adding a Source
 
-Drop a YAML file in `sources/`. The pipeline auto-generates a scraper on the next run and commits it. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
+Drop a YAML file in `apps/personal/sources/`. The pipeline auto-generates a scraper on the next run and commits it. See [ARCHITECTURE.md](ARCHITECTURE.md) for details.

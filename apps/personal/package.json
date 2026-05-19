@@ -1,0 +1,19 @@
+{
+  "name": "@rss-agentic/personal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "start": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "@rss-agentic/core": "workspace:*",
+    "tsx": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^6.0.0"
+  }
+}

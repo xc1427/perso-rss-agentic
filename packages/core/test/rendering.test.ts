@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { renderRss } from "../src/render/rss.js"
-import type { FeedConfig, FeedItem } from "../src/types.js"
+import { renderRss, type FeedConfig, type FeedItem } from "@rss-agentic/core"
 
 const config: FeedConfig = {
   slug: "claude-code",

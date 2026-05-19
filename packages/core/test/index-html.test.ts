@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { renderIndexHtml } from "../src/render/index-html.js"
-import type { FeedConfig } from "../src/types.js"
+import { renderIndexHtml, type FeedConfig } from "@rss-agentic/core"
 
 function cfg(slug: string, feedTitle: string, url: string): FeedConfig {
   return {

@@ -1,20 +1,12 @@
 {
-  "name": "perso-rss-agentic",
+  "name": "rss-agentic-monorepo",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "start": "tsx src/update.ts"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.54.0",
-    "cheerio": "^1.0.0",
-    "tsx": "^4.0.0",
-    "yaml": "^2.8.0"
-  },
-  "optionalDependencies": {
-    "playwright": "^1.0.0"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "start": "pnpm --filter @rss-agentic/personal start"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
