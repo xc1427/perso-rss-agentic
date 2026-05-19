@@ -10,16 +10,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
+    outputs:
+      artifact-uploaded: ${{ steps.pages-upload.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +26,6 @@ jobs:
       - run: npm install
 
       - name: Cache Playwright browsers
-        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -62,12 +57,23 @@ jobs:
           git add src/sources/generated/
           git diff --staged --quiet || (git commit -m "chore: update generated scrapers [skip ci]" && git push origin "HEAD:${GITHUB_REF_NAME}")
 
-      - uses: actions/upload-pages-artifact@v3
+      - id: pages-upload
+        uses: actions/upload-pages-artifact@v3
         if: always() && hashFiles('public/*.xml') != '' && github.ref_name == 'main'
         with:
           path: public/
 
+  deploy:
+    needs: build
+    if: needs.build.outputs.artifact-uploaded == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        if: always() && hashFiles('public/*.xml') != '' && github.ref_name == 'main'
         uses: actions/deploy-pages@v4

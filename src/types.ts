@@ -19,3 +19,10 @@ export type FeedConfig = {
   feedUrl: string
   outputXml: string
 }
+
+export type ScraperHelpers = {
+  // Always renders the page in a headless browser. Use only for SPA sources
+  // whose listing is empty in the raw HTML (no `__NEXT_DATA__` JSON island,
+  // no SSR'd markup); plain `fetch` is faster and preferred otherwise.
+  fetchPage: (url: string) => Promise<string>
+}
