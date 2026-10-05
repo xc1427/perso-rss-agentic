@@ -109,7 +109,7 @@ type FeedConfig = {
 Every generated scraper exports:
 
 ```typescript
-export async function fetchFeed(config: FeedConfig): Promise<FeedItem[]>
+export async function fetchFeed(config: FeedConfig, helpers: ScraperHelpers): Promise<FeedItem[]>
 ```
 
 ## Scraper Loading
@@ -136,7 +136,7 @@ A hand-written scraper layer may still be introduced later for cases where neith
 
 ## Output Validation
 
-After `fetchFeed` returns, `update.ts` enforces:
+After `fetchFeed` returns, `runPipeline` enforces the following through `validateItems`:
 
 - At least 1 item returned
 - Each item has non-empty `id`, `title`, `url`, `publishedAt`

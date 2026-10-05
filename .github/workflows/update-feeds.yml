@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: agent-logs
-          path: logs/
+          path: apps/personal/logs/
           if-no-files-found: ignore
           retention-days: 14
 
