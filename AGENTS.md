@@ -12,10 +12,10 @@ All specifications and implementation plans in this repository must be authored 
 
 ## Key Conventions
 
-- Each feed source is declared in `sources/{slug}.yml`; no code changes are needed to add a source
-- All scrapers are agent-generated and live in `src/sources/generated/{slug}.ts`; **never hand-edit them** — change scraper behavior by editing the generator prompt in `scripts/generate-source.ts` or the per-source `agentHints` in the YAML (see ARCHITECTURE.md)
-- All scrapers export `fetchFeed(config: FeedConfig): Promise<FeedItem[]>`
+- Each feed source is declared in `apps/personal/sources/{slug}.yml`; no code changes are needed to add a source
+- All scrapers are agent-generated and live in `apps/personal/src/generated/{slug}.ts`; **never hand-edit them** — change scraper behavior by editing the generator prompt in `packages/core/scripts/generate-source.ts` or the per-source `agentHints` in the YAML (see ARCHITECTURE.md)
+- All scrapers export `fetchFeed(config: FeedConfig, helpers: ScraperHelpers): Promise<FeedItem[]>`
 - `FeedItem.source` must equal `FeedConfig.slug`
-- `FeedConfig.slug` drives both the output path (`public/{slug}.xml`) and the feed URL
+- `FeedConfig.slug` drives both the output path (`apps/personal/public/{slug}.xml`) and the feed URL
 - Generated scrapers are committed to git; they are auto-deleted on hard failure or source-config drift and regenerated on the next run
 - XML output files are never committed — they are uploaded as GitHub Pages artifacts at CI time

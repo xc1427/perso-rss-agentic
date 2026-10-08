@@ -19,23 +19,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "pnpm"
 
-      - run: npm install
+      - run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - run: npx playwright install --with-deps chromium
+      - run: pnpm --filter @rss-agentic/core exec playwright install --with-deps chromium
 
-      - run: npm test
+      - run: pnpm -r test
 
-      - run: npm start
+      - run: pnpm --filter @rss-agentic/personal start
         env:
           ANTHROPIC_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           ANTHROPIC_BASE_URL: ${{ vars.DEEPSEEK_ANTHROPIC_COMPAT_BASE_URL }}
@@ -45,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: agent-logs
-          path: logs/
+          path: apps/personal/logs/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -54,14 +59,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/sources/generated/
+          git add apps/personal/src/generated/
           git diff --staged --quiet || (git commit -m "chore: update generated scrapers [skip ci]" && git push origin "HEAD:${GITHUB_REF_NAME}")
 
       - id: pages-upload
         uses: actions/upload-pages-artifact@v3
-        if: always() && hashFiles('public/*.xml') != '' && github.ref_name == 'main'
+        if: always() && hashFiles('apps/personal/public/*.xml') != '' && github.ref_name == 'main'
         with:
-          path: public/
+          path: apps/personal/public/
 
   deploy:
     needs: build

@@ -6,14 +6,14 @@
 |----|--------|--------|-------|
 | PR 1 | `pr/1-branch-guard-deploy` | **MERGED** (932c7e4) | Branch-guard Pages deploy to main only; concurrency scoped by branch |
 | PR 2 | `pr/2-cleanup` | **MERGED** (#17) | In-place cleanup; shared `esc()` and `validateItems()`; typecheck covers `scripts/` |
-| PR 3 | `pr/3-helpers-fetch-page` | **IN PROGRESS** | `helpers.fetchPage` SPA fix; `GENERATOR_FORMAT_VERSION="1"` mixed into source-hash; tests + typecheck clean |
-| PR 4 | — | not started | Monorepo migration |
+| PR 3 | `pr/3-helpers-fetch-page` | **MERGED** (#18) | `helpers.fetchPage` SPA fix; `GENERATOR_FORMAT_VERSION="1"`; build/deploy job split so branch dispatches work |
+| PR 4 | `pr/4-monorepo-migration` | **IN PROGRESS** | pnpm workspace; `@rss-agentic/core` + `@rss-agentic/personal` + `rss-agentic` CLI stub; `GENERATOR_FORMAT_VERSION="2"` invalidates all cached scrapers |
 | PR 5 | — | not started | Test infrastructure |
 | PR 6 | — | not started | First pre-production SPA source |
 | PR 7 | — | not started | Feed continuity: stale XML fallback on source failure |
 
-**Current branch:** `pr/3-helpers-fetch-page`.
-**Next action:** push branch, open PR, dispatch on branch to confirm the 3 existing scrapers regenerate with the new signature.
+**Current branch:** `pr/4-monorepo-migration`.
+**Next action:** push branch, open PR, dispatch on branch to confirm the 3 cached scrapers regenerate under the new `@rss-agentic/core` import path and the pnpm-based CI works end-to-end.
 
 ---
 
